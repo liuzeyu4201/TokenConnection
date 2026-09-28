@@ -62,7 +62,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
 
       {nextHref ? (
         <div className="text-center">
-          <Button variant="outline" render={<Link href={nextHref} />}>
+          <Button variant="outline" nativeButton={false} render={<Link href={nextHref} />}>
             下一页
           </Button>
         </div>

@@ -112,7 +112,7 @@ export function InboxPendingList({ items: initialItems, compact = false }: { ite
       })}
       {compact ? (
         <div className="text-right">
-          <Button variant="link" size="sm" render={<Link href="/inbox" />}>
+          <Button variant="link" size="sm" nativeButton={false} render={<Link href="/inbox" />}>
             查看全部收件箱 →
           </Button>
         </div>

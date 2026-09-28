@@ -44,7 +44,7 @@ export function PeopleFilters({ values, tags }: { values: PeopleFilterValues; ta
           筛选
         </Button>
         {hasAny ? (
-          <Button type="button" variant="ghost" size="lg" render={<Link href="/people" />}>
+          <Button variant="ghost" size="lg" nativeButton={false} render={<Link href="/people" />}>
             清除
           </Button>
         ) : null}
