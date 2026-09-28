@@ -12,7 +12,15 @@ import { fallbackDraft, type Draft } from "@/lib/schemas/draft";
 import type { InboxCreateInput, InboxQuery } from "@/lib/schemas/inbox";
 
 import { insertEvent, recomputeLastContact } from "./events";
-import { getPeopleIndex, getPersonDetail, getPersonRow, mergeContacts, type PersonDetail } from "./people";
+import {
+  getPeopleIndex,
+  getPersonDetail,
+  getPersonRow,
+  initialGeo,
+  mergeContacts,
+  resolveGeo,
+  type PersonDetail,
+} from "./people";
 import { searchPeople, type SearchResponse } from "./search";
 import { addPersonTags, replacePersonTags } from "./tags";
 
@@ -203,6 +211,7 @@ export async function applyInbox(
           contacts: mergeContacts(existing.contacts, p.contacts),
           how_met: p.how_met ?? existing.how_met,
           met_at: p.met_at ?? existing.met_at,
+          ...(p.location ? resolveGeo(existing, { location: p.location }) : {}),
           updated_at: new Date(),
         })
         .where(eq(people.id, targetId));
@@ -223,6 +232,7 @@ export async function applyInbox(
           contacts: p.contacts ?? {},
           how_met: p.how_met,
           met_at: p.met_at,
+          ...initialGeo({ location: p.location }),
         })
         .returning({ id: people.id });
       targetId = created.id;

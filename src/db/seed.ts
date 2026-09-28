@@ -250,6 +250,7 @@ async function main() {
   const { sql } = await import("drizzle-orm");
   const { replacePersonTags } = await import("@/lib/services/tags");
   const { recomputeLastContact } = await import("@/lib/services/events");
+  const { initialGeo } = await import("@/lib/services/people");
   const { embedPerson } = await import("@/lib/llm/embed");
   const { getEmbeddingModelName, getLlmProviderKind } = await import("@/lib/llm/provider");
 
@@ -285,6 +286,8 @@ async function main() {
           contacts: person.contacts,
           how_met: person.how_met,
           met_at: person.met_at,
+          // Stage 2: coordinates from the offline geocoder.
+          ...initialGeo({ location: person.location }),
         })
         .returning({ id: people.id });
       await replacePersonTags(
@@ -319,7 +322,10 @@ async function main() {
       console.error(`  embedding 失败 ${id}:`, error instanceof Error ? error.message : error);
     }
   }
-  console.log(`完成：${ids.length} 人，embedding 失败 ${failed} 个。`);
+  const [{ located }] = await db
+    .select({ located: sql<number>`count(*) filter (where lat is not null)::int` })
+    .from(people);
+  console.log(`完成：${ids.length} 人，embedding 失败 ${failed} 个，已定位 ${located} 人。`);
   await closeDb();
 }
 

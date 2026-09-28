@@ -1,5 +1,8 @@
 import {
+  type AnyPgColumn,
+  boolean,
   date,
+  doublePrecision,
   index,
   jsonb,
   pgEnum,
@@ -53,6 +56,14 @@ export const people = pgTable("people", {
   how_met: text(),
   met_at: date(),
   last_contact_at: timestamp({ withTimezone: true }),
+  // Stage 2 (design.md §14, §19 Q2/Q5):
+  /** Sector on the radial map; must point at a kind=circle tag of this person. */
+  primary_circle_tag_id: uuid().references((): AnyPgColumn => tags.id, { onDelete: "set null" }),
+  /** Geocoded (or manually set) coordinates for the geo map. */
+  lat: doublePrecision(),
+  lng: doublePrecision(),
+  /** True when lat/lng were entered by hand and must not be auto-overwritten. */
+  geo_manual: boolean().notNull().default(false),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { peopleTags, tags, type TagRow } from "@/db/schema";
+import { people, peopleTags, tags, type TagRow } from "@/db/schema";
 import { conflict, notFound } from "@/lib/api/errors";
 import type { TagKind } from "@/lib/schemas/enums";
 import type { TagInput } from "@/lib/schemas/person";
@@ -62,6 +62,10 @@ export async function updateTag(id: string, input: TagUpdateInput): Promise<TagR
     throw conflict("同名同类型的标签已存在");
   }
   const [row] = await db.update(tags).set(next).where(eq(tags.id, id)).returning();
+  // A tag that is no longer a circle cannot be anyone's primary circle.
+  if (current.kind === "circle" && next.kind !== "circle") {
+    await db.update(people).set({ primary_circle_tag_id: null }).where(eq(people.primary_circle_tag_id, id));
+  }
   return row;
 }
 
@@ -148,6 +152,18 @@ export async function replacePersonTags(
       .values(rows.map((t) => ({ person_id: personId, tag_id: t.id })))
       .onConflictDoNothing();
   }
+  // Drop the primary circle when it is no longer one of the person's circle tags.
+  const circleIds = rows.filter((t) => t.kind === "circle").map((t) => t.id);
+  await client
+    .update(people)
+    .set({ primary_circle_tag_id: null })
+    .where(
+      and(
+        eq(people.id, personId),
+        isNotNull(people.primary_circle_tag_id),
+        circleIds.length > 0 ? notInArray(people.primary_circle_tag_id, circleIds) : undefined,
+      ),
+    );
   return rows;
 }
 

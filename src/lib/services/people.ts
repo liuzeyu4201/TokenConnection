@@ -2,7 +2,8 @@ import { and, desc, eq, ilike, isNotNull, lt, or, sql, type SQL } from "drizzle-
 
 import { db } from "@/db";
 import { events, people, peopleTags, tags, type EventRow, type PersonRow, type TagRow } from "@/db/schema";
-import { notFound } from "@/lib/api/errors";
+import { badRequest, notFound } from "@/lib/api/errors";
+import { geocode } from "@/lib/geo/geocode";
 import { refreshPersonEmbedding } from "@/lib/llm/embed";
 import type { PeopleIndexEntry } from "@/lib/llm/types";
 import { TIER_LABEL } from "@/lib/schemas/enums";
@@ -197,8 +198,66 @@ export async function getPeopleIndex(): Promise<PeopleIndexEntry[]> {
 // Writes
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Geo helpers (design.md §14.2). Coordinates come from the offline geocoder
+// unless the user pinned them by hand (geo_manual).
+// ---------------------------------------------------------------------------
+
+export type GeoFields = { lat: number | null; lng: number | null; geo_manual: boolean };
+
+/** Coordinates for a brand-new person: manual if given, else geocode the location. */
+export function initialGeo(input: { location?: string | null; lat?: number | null; lng?: number | null }): GeoFields {
+  if (input.lat != null && input.lng != null) return { lat: input.lat, lng: input.lng, geo_manual: true };
+  const hit = geocode(input.location ?? null);
+  return { lat: hit?.lat ?? null, lng: hit?.lng ?? null, geo_manual: false };
+}
+
+/**
+ * Coordinates after an update:
+ * - explicit lat/lng → manual pin
+ * - geo_manual=false ("恢复自动") → re-geocode from the (new) location
+ * - location changed and not manual → re-geocode
+ * - otherwise unchanged
+ */
+export function resolveGeo(
+  existing: Pick<PersonRow, "location" | "lat" | "lng" | "geo_manual">,
+  patch: { location?: string | null; lat?: number | null; lng?: number | null; geo_manual?: boolean },
+): GeoFields {
+  const nextLocation = patch.location !== undefined ? patch.location : existing.location;
+  if (patch.lat != null && patch.lng != null && patch.geo_manual !== false) {
+    return { lat: patch.lat, lng: patch.lng, geo_manual: true };
+  }
+  const forceAuto = patch.geo_manual === false;
+  const locationChanged = patch.location !== undefined && patch.location !== existing.location;
+  if (forceAuto || (locationChanged && !existing.geo_manual) || (patch.lat === null && patch.lng === null)) {
+    const hit = geocode(nextLocation);
+    return { lat: hit?.lat ?? null, lng: hit?.lng ?? null, geo_manual: false };
+  }
+  return { lat: existing.lat, lng: existing.lng, geo_manual: existing.geo_manual };
+}
+
+/**
+ * Validate a primary circle choice: the tag must be a kind=circle tag that the
+ * person currently has (design.md §19 Q2).
+ */
+async function assertPrimaryCircle(personId: string, tagId: string, client: DbClient): Promise<void> {
+  const rows = await client
+    .select({ id: tags.id, kind: tags.kind })
+    .from(peopleTags)
+    .innerJoin(tags, eq(tags.id, peopleTags.tag_id))
+    .where(and(eq(peopleTags.person_id, personId), eq(peopleTags.tag_id, tagId)))
+    .limit(1);
+  if (rows.length === 0) throw badRequest("主圈子必须是这个人已有的标签", "invalid_primary_circle");
+  if (rows[0].kind !== "circle") throw badRequest("主圈子必须是圈子（circle）类型的标签", "invalid_primary_circle");
+}
+
+// ---------------------------------------------------------------------------
+// Writes
+// ---------------------------------------------------------------------------
+
 export async function createPerson(input: PersonCreateInput): Promise<PersonDetail> {
   const { tags: tagInputs, ...fields } = input;
+  const geo = initialGeo(fields);
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(people)
@@ -212,6 +271,7 @@ export async function createPerson(input: PersonCreateInput): Promise<PersonDeta
         contacts: fields.contacts ?? {},
         how_met: fields.how_met ?? null,
         met_at: fields.met_at ?? null,
+        ...geo,
       })
       .returning({ id: people.id });
     if (tagInputs && tagInputs.length > 0) {
@@ -226,7 +286,7 @@ export async function createPerson(input: PersonCreateInput): Promise<PersonDeta
 export async function updatePerson(id: string, input: PersonUpdateInput): Promise<PersonDetail> {
   const { tags: tagInputs, ...fields } = input;
   await db.transaction(async (tx) => {
-    await getPersonRow(id, tx);
+    const existing = await getPersonRow(id, tx);
     const patch: Partial<typeof people.$inferInsert> = { updated_at: new Date() };
     if (fields.name !== undefined) patch.name = fields.name;
     if (fields.gender !== undefined) patch.gender = fields.gender;
@@ -237,9 +297,21 @@ export async function updatePerson(id: string, input: PersonUpdateInput): Promis
     if (fields.contacts !== undefined) patch.contacts = fields.contacts;
     if (fields.how_met !== undefined) patch.how_met = fields.how_met;
     if (fields.met_at !== undefined) patch.met_at = fields.met_at;
+    if (
+      fields.location !== undefined ||
+      fields.lat !== undefined ||
+      fields.lng !== undefined ||
+      fields.geo_manual !== undefined
+    ) {
+      Object.assign(patch, resolveGeo(existing, fields));
+    }
     await tx.update(people).set(patch).where(eq(people.id, id));
     if (tagInputs !== undefined) {
       await replacePersonTags(id, tagInputs, tx);
+    }
+    if (fields.primary_circle_tag_id !== undefined) {
+      if (fields.primary_circle_tag_id) await assertPrimaryCircle(id, fields.primary_circle_tag_id, tx);
+      await tx.update(people).set({ primary_circle_tag_id: fields.primary_circle_tag_id }).where(eq(people.id, id));
     }
   });
   await refreshPersonEmbedding(id);
