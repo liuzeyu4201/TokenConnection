@@ -37,9 +37,9 @@ function Field({ label, children, className }: { label: string; children: React.
 }
 
 /** Manual editing of every field (design.md §17: works without the LLM). */
-export function PersonEditForm({ person }: { person: ApiPerson }) {
+export function PersonEditForm({ person, initialOpen = false }: { person: ApiPerson; initialOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(initialOpen);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -57,6 +57,37 @@ export function PersonEditForm({ person }: { person: ApiPerson }) {
   const [tags, setTags] = React.useState<TagDraft[]>(person.tags.map((t) => ({ name: t.name, kind: t.kind })));
   const [newTag, setNewTag] = React.useState<TagDraft>({ name: "", kind: "skill" });
 
+  // Geo (design.md §14.2): "auto" follows the offline geocoder, "manual" pins coordinates.
+  const [geoMode, setGeoMode] = React.useState<"auto" | "manual">(person.geo_manual ? "manual" : "auto");
+  const [lat, setLat] = React.useState(person.lat != null ? String(person.lat) : "");
+  const [lng, setLng] = React.useState(person.lng != null ? String(person.lng) : "");
+  const [cityQuery, setCityQuery] = React.useState("");
+  const [cityResults, setCityResults] = React.useState<Array<{ name: string; en: string; lat: number; lng: number }>>([]);
+
+  const searchCity = async (q: string) => {
+    setCityQuery(q);
+    if (q.trim().length < 1) {
+      setCityResults([]);
+      return;
+    }
+    try {
+      const res = await apiFetch<{ items: Array<{ name: string; en: string; lat: number; lng: number }> }>(
+        `/api/v1/geo/cities?q=${encodeURIComponent(q.trim())}&limit=6`,
+      );
+      setCityResults(res.items);
+    } catch {
+      setCityResults([]);
+    }
+  };
+
+  const pickCity = (c: { name: string; lat: number; lng: number }) => {
+    setGeoMode("manual");
+    setLat(String(c.lat));
+    setLng(String(c.lng));
+    setCityResults([]);
+    setCityQuery(c.name);
+  };
+
   const addTag = () => {
     const n = newTag.name.trim();
     if (!n) return;
@@ -68,6 +99,14 @@ export function PersonEditForm({ person }: { person: ApiPerson }) {
     if (!name.trim()) {
       setError("姓名不能为空");
       return;
+    }
+    if (geoMode === "manual") {
+      const la = Number(lat);
+      const ln = Number(lng);
+      if (!lat.trim() || !lng.trim() || !Number.isFinite(la) || !Number.isFinite(ln) || Math.abs(la) > 90 || Math.abs(ln) > 180) {
+        setError("手动坐标需要合法的纬度（-90~90）和经度（-180~180）");
+        return;
+      }
     }
     setBusy(true);
     setError(null);
@@ -89,6 +128,9 @@ export function PersonEditForm({ person }: { person: ApiPerson }) {
           met_at: metAt || null,
           contacts: record,
           tags,
+          ...(geoMode === "manual"
+            ? { lat: Number(lat), lng: Number(lng), geo_manual: true }
+            : { geo_manual: false }),
         },
       });
       setOpen(false);
@@ -190,6 +232,50 @@ export function PersonEditForm({ person }: { person: ApiPerson }) {
             <Plus /> 自定义
           </Button>
         </div>
+      </div>
+
+      <div className="space-y-2" id="geo">
+        <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">地图坐标</h4>
+        <div className="inline-flex rounded-lg border p-0.5 text-xs">
+          <button type="button" onClick={() => setGeoMode("auto")} className={`rounded-md px-2.5 py-1 ${geoMode === "auto" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+            按所在地自动
+          </button>
+          <button type="button" onClick={() => setGeoMode("manual")} className={`rounded-md px-2.5 py-1 ${geoMode === "manual" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+            手动填写
+          </button>
+        </div>
+        {geoMode === "auto" ? (
+          <p className="text-xs text-muted-foreground">
+            保存时用离线城市表匹配「所在地」。
+            {person.lat != null && !person.geo_manual ? ` 当前已定位到 ${person.lat.toFixed(2)}, ${person.lng?.toFixed(2)}。` : person.geo_manual ? " 保存后将放弃手动坐标并重新匹配。" : person.location ? " 当前所在地没有匹配到城市，可换成城市名或改为手动。" : ""}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="纬度 lat">
+                <Input inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="30.29" />
+              </Field>
+              <Field label="经度 lng">
+                <Input inputMode="decimal" value={lng} onChange={(e) => setLng(e.target.value)} placeholder="120.16" />
+              </Field>
+            </div>
+            <div className="relative">
+              <Input value={cityQuery} onChange={(e) => void searchCity(e.target.value)} placeholder="或搜一个城市名填入坐标，例如 杭州 / Tokyo" />
+              {cityResults.length > 0 ? (
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border bg-popover text-sm shadow-md">
+                  {cityResults.map((c) => (
+                    <li key={`${c.name}-${c.en}`}>
+                      <button type="button" className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-muted" onClick={() => pickCity(c)}>
+                        <span>{c.name} <span className="text-xs text-muted-foreground">{c.en}</span></span>
+                        <span className="font-mono text-[11px] text-muted-foreground">{c.lat.toFixed(2)}, {c.lng.toFixed(2)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
