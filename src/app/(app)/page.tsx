@@ -3,18 +3,21 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { InboxPendingList } from "@/components/inbox-pending-list";
 import { PersonCard } from "@/components/person-card";
+import { ReminderList } from "@/components/reminder-list";
 import { UniversalInput } from "@/components/universal-input";
 import { listInbox } from "@/lib/services/inbox";
 import { countPeople, listRecentlyAdded, listRecentlyContacted } from "@/lib/services/people";
+import { listReminders } from "@/lib/services/reminders";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [pending, recentlyAdded, recentlyContacted, total] = await Promise.all([
+  const [pending, recentlyAdded, recentlyContacted, total, reminders] = await Promise.all([
     listInbox({ status: "pending", limit: 5 }),
     listRecentlyAdded(6),
     listRecentlyContacted(6),
     countPeople(),
+    listReminders(),
   ]);
 
   return (
@@ -33,6 +36,18 @@ export default async function HomePage() {
             <span className="text-xs font-normal text-muted-foreground">{pending.length} 条</span>
           </h2>
           <InboxPendingList items={pending} compact />
+        </section>
+      ) : null}
+
+      {reminders.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="flex items-baseline justify-between text-sm font-semibold">
+            该联系了
+            <Link href="/reminders" className="text-xs font-normal text-muted-foreground hover:text-foreground">
+              共 {reminders.length} 人 →
+            </Link>
+          </h2>
+          <ReminderList items={reminders.slice(0, 5)} compact />
         </section>
       ) : null}
 
