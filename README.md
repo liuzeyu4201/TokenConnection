@@ -1,6 +1,6 @@
 # TokenConnection · 人脉
 
-只给自己用的人脉库：用一句自然语言把人记进去，系统自动归档；需要某类人的时候一句话把人找出来，按关系远近排好。设计文档见 [`docs/design.md`](docs/design.md)，本仓库实现的是其中的「阶段 1：能每天用」。
+只给自己用的人脉库：用一句自然语言把人记进去，系统自动归档；需要某类人的时候一句话把人找出来，按关系远近排好。设计文档见 [`docs/design.md`](docs/design.md)，本仓库已实现「阶段 1：能每天用」与「阶段 2：能看」（同心圆地图、地理地图、该联系了提醒）。
 
 技术栈：Next.js 16（App Router）+ TypeScript + Drizzle + Postgres 16 / pgvector + Tailwind / shadcn/ui + Vercel AI SDK（DeepSeek 抽取、通义千问 embedding），包管理 pnpm。
 
@@ -23,6 +23,8 @@ pnpm db:seed                  # 已有数据时会跳过；pnpm db:seed --reset 
 # 4. 启动
 pnpm dev                      # http://localhost:3000
 ```
+
+页面：`/` 首页（万能输入框、待处理、该联系了、最近添加/联系）、`/people` 列表与筛选、`/people/[id]` 详情（追加一句、编辑、设为主圈子、手动坐标）、`/map` 同心圆地图、`/map?view=geo` 地理地图、`/reminders` 该联系了、`/tags`、`/inbox`。
 
 首页即万能输入框：直接输入「今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情」会得到一张可编辑的草稿卡，点「确认入库」即完成记录；输入「想找个人教我打羽毛球」会原地展开搜索结果。`+` 开头强制记录，`?` 开头强制查询。
 
@@ -61,6 +63,7 @@ pnpm dev                      # http://localhost:3000
 | `pnpm db:migrate` | 执行迁移 |
 | `pnpm db:seed [--reset]` | 示例数据 |
 | `pnpm db:reembed` | 用当前 provider 重算全部向量 |
+| `pnpm db:geocode [--all]` | 用离线城市表为有所在地但无坐标（且非手动）的人回填经纬度；`--all` 重算全部非手动的人 |
 | `pnpm db:studio` | Drizzle Studio |
 
 ## API 一览
@@ -72,7 +75,7 @@ pnpm dev                      # http://localhost:3000
 | `GET` | `/people?tier=&tag=&location=&q=&cursor=&limit=` | 列表：结构化筛选 + 关键词，keyset 分页返回 `{ items, next_cursor }` |
 | `POST` | `/people` | 新建（可带 `tags`） |
 | `GET` | `/people/:id` | 详情（含 `tags`、`events`） |
-| `PATCH` | `/people/:id` | 更新任意字段（可带 `tags` 整体替换） |
+| `PATCH` | `/people/:id` | 更新任意字段（可带 `tags` 整体替换；阶段 2 新增 `primary_circle_tag_id`、`lat`/`lng`（视为手动坐标）、`geo_manual: false` 表示恢复自动 geocode） |
 | `DELETE` | `/people/:id` | 删除 |
 | `PUT` | `/people/:id/tags` | `{ tags: [{ name, kind }] }` 整体设置标签 |
 | `GET` | `/people/:id/events` | 时间线 |
@@ -89,6 +92,14 @@ pnpm dev                      # http://localhost:3000
 | `POST` | `/inbox/:id/reparse` | 重新解析 |
 | `POST` | `/inbox/:id/apply` | `{ draft }` 用确认后的草稿落库，返回 `{ inbox, person }` |
 | `POST` | `/inbox/:id/discard` | 丢弃 |
+| `GET` | `/map/radial` | 同心圆地图数据：`{ people, layout: { rings, sectors, points }, skills, locations }`，坐标为单位圆内的 (x, y) |
+| `GET` | `/map/geo` | 地理地图数据：`{ clusters, unlocated, no_location_count, located_count, skills }` |
+| `GET` | `/reminders` | 该联系了：`{ items: [{ person, basis, basis_at, threshold_days, days_since, overdue_days }], thresholds }` |
+| `GET` | `/geo/cities?q=` | 离线城市表查询：`{ match, items }`，`match` 为 `geocode(q)` 的结果 |
+
+提醒阈值在 `src/lib/reminders/thresholds.ts`（Best Bros 30 天、Close friends 60 天、Friends 120 天；另外两级不提醒），基准时间 `last_contact_at` → `met_at` → `created_at`。
+
+地图不依赖任何外部服务：所在地用 `src/lib/geo/cities.ts` 的离线城市表（GeoNames cities15000，CC BY 4.0；全部省级行政区与地级市、港澳台主要城市、约 100 个世界城市）匹配，匹配不到的人会出现在地理地图下方的「未定位」里，可在详情页编辑中手动填坐标或搜城市名填入；底图是随包附带的 `world-atlas` 110m 国界。
 
 排序公式与阈值在 `src/lib/search/rank.ts` 一处维护：`score = 0.60*semantic + 0.25*tier_rank/5 + 0.15*keyword_hit`，语义相似度低于 0.30 且无关键词命中的不返回。
 
@@ -109,7 +120,7 @@ docs/design.md            设计文档（唯一的需求与规格来源）
 docker-compose.yml        pgvector Postgres
 drizzle/                  迁移文件
 shortcuts/                iOS 快捷指令配置说明
-src/app/(app)/            页面：/ /people /people/[id] /tags /inbox
+src/app/(app)/            页面：/ /people /people/[id] /map /reminders /tags /inbox
 src/app/api/v1/           REST 路由
 src/proxy.ts              Bearer / cookie 鉴权
 src/db/                   Drizzle schema、迁移、seed
@@ -117,5 +128,8 @@ src/lib/schemas/          zod：输入校验 + LLM Draft
 src/lib/services/         people / tags / events / inbox / search 业务函数（API 与页面共用）
 src/lib/llm/              provider / extract / embed / prompts / mock
 src/lib/search/rank.ts    排序公式与阈值
+src/lib/geo/              离线城市表 + geocode
+src/lib/map/              同心圆布局（纯函数）、主圈子回退规则
+src/lib/reminders/        提醒阈值与计算
 src/components/           UI 组件
 ```

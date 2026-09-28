@@ -425,13 +425,26 @@ EMBEDDING_DIM=1024
 
 数据不需要任何新增字段，`tier` + `circle` 标签 + `last_contact_at` 就够画。
 
+> 阶段 2 实现说明：
+> - 一个人可能有多个 `circle` 标签，新增 `people.primary_circle_tag_id`（可空，FK → tags，须为该人已有的 circle 标签）决定扇区；为空时回退为按名称排序的第一个 circle 标签；没有圈子标签落在"未分类"扇区（见 §19 问题 2）。摘掉该标签、标签改 kind 或删除标签时自动清理引用。
+> - 扇区排序按人数降序，"未分类"永远最后；扇区宽度 = 45% 均分 + 55% 按人数加权，保证小圈子可见。
+> - 同环同扇区内按 `last_contact_at` 降序均匀排布；半径抖动由 id 的 FNV-1a 哈希决定，同样数据每次渲染位置一致。布局是纯函数 `src/lib/map/radial.ts`，服务端算好经 `GET /api/v1/map/radial` 下发，前端只画图、筛选（skill 标签、location，被筛掉的点变淡）、d3-zoom 缩放和点击弹卡（卡上可直接"追加一句"）。
+
 ### 14.2 地理地图
 
 `location` 城市字符串 geocode 成经纬度，加两列 `lat`、`lng`。同城聚合成气泡，点开列人。geocoding 服务待定（高德 / 腾讯位置服务，国内城市名准）。
 
+> 阶段 2 实现说明：
+> - 不接外部 geocoding（§19 问题 5 已定）。用离线城市表 `src/lib/geo/cities.ts`（GeoNames cities15000，CC BY 4.0；覆盖全部省级行政区、全部地级市与自治州/盟、大县级市、港澳台主要城市、约 100 个世界主要城市，中英文名可匹配）和归一化匹配 `geocode()`（去 市/省/区/县 等后缀、去掉省名前缀、最长前缀匹配；匹配不到返回 null 不猜）。
+> - `people` 新增 `lat`、`lng`（可空）与 `geo_manual`（默认 false）。新建/更新时 location 变化且非手动即自动 geocode；手动填过坐标的不被覆写，编辑表单可"恢复自动"。`pnpm db:geocode` 回填存量数据，seed 也产生坐标。
+> - 底图为 `world-atlas` 110m 国界（TopoJSON，随包离线），d3-geo Mercator，初始视口包住全部已定位的人（无人时默认中国）；同城按 0.01° 网格聚合成气泡；页面下方列出"未定位"（有 location 但匹配不到）的人并给修复入口；没填 location 的人只计数。
+> - 扩展点：`geocode()` 返回 null 时可在 `src/lib/geo/geocode.ts` 的同一入口串一个在线 geocoder（高德 / 腾讯位置服务），配置了 key 才启用；`geo_manual` 语义不变。本阶段只注明，不实现。
+
 ### 14.3 提醒
 
 "太久没联系"列表：`tier` 为 Friends 及以上，且 `last_contact_at` 距今超过阈值（Best Bros 30 天、Close friends 60 天、Friends 120 天，可调）。只是一个列表页，不推送。
+
+> 阶段 2 实现说明：阈值集中在 `src/lib/reminders/thresholds.ts`；基准时间 `last_contact_at` → 为空用 `met_at` → 再为空用 `created_at`；严格超过阈值才算逾期。首页"该联系了"区块最多 5 人，`/reminders` 显示全部并按逾期天数降序，每项可直接"追加一句"，追加后从列表消失。`GET /api/v1/reminders` 提供同样的数据。不做推送、不做 snooze。
 
 ## 15. 部署路径
 
@@ -509,6 +522,10 @@ TokenConnection/
 
 同心圆地图、地理地图、"太久没联系"列表、排序权重调优、联系方式脱敏（可选）。
 
+> 阶段 2 完成情况：
+> - 已完成：同心圆地图 `/map`、地理地图 `/map?view=geo`、"该联系了"提醒（首页区块 + `/reminders`），以及配套的 `GET /api/v1/map/radial`、`GET /api/v1/map/geo`、`GET /api/v1/reminders`、`GET /api/v1/geo/cities`，`PATCH /people/:id` 支持 `primary_circle_tag_id` / `lat` / `lng` / `geo_manual`。
+> - 未做：排序权重调优（需要真实 embedding 与真实数据）；联系方式脱敏（真实 LLM 路径尚未验证，等 key 接入后再做）。
+
 ### 阶段 3：能带走
 
 上服务器、登录页、备份、iOS 原生客户端（技术选型待定：Swift / Expo）接同一套 API。
@@ -529,9 +546,9 @@ TokenConnection/
 ## 19. 开放问题
 
 1. 时间线事件要不要支持编辑 / 删除？现在定的是只追加。记错了怎么办：允许删除、不允许编辑？（阶段 1 已定：允许删除，不允许编辑）
-2. 一个人可以有多个 `circle` 标签，地图上落在哪个扇区？默认第一个，还是让用户指定主圈子？
+2. 一个人可以有多个 `circle` 标签，地图上落在哪个扇区？默认第一个，还是让用户指定主圈子？（阶段 2 已定：`people.primary_circle_tag_id` 指定主圈子，详情页可"设为主圈子"；未指定时回退为按名称排序的第一个 circle 标签）
 3. 意图判断的默认倾向：模糊时偏向"查询"还是偏向"记录"？（记录有确认步骤，误判成本低，倾向记录）（阶段 1 已定：倾向记录）
 4. `impression` 要不要在搜索结果列表里显示？它是私密字段，但列表只有自己看（阶段 1 已定：只在详情页显示）
-5. geocoding 用哪家？高德需要 key，是否接受再多一个外部依赖
+5. geocoding 用哪家？高德需要 key，是否接受再多一个外部依赖（阶段 2 已定：不接外部服务，用离线城市表 + 归一化匹配，匹配不到可手动填坐标；将来要接高德在 `geocode()` 返回 null 处扩展）
 6. iOS 原生客户端用 Swift 还是 Expo？影响阶段 3，不影响现在
 7. 语义搜索是否要把 `events` 单独向量化（一人多条向量），还是只拼进人的向量里？前者更准，后者简单。先后者（阶段 1 已定：一人一条向量，events 拼进人的向量文本）
