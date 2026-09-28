@@ -1,6 +1,6 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 
-import { loadDotEnv } from "@/lib/env";
+import { loadDotEnv } from "./load-env";
 
 loadDotEnv();
 

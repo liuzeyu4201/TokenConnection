@@ -1,21 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
-
 /**
- * Load `.env` from the project root into process.env for standalone scripts
- * (migrate, seed, drizzle-kit). Next.js loads `.env` on its own, so calling
- * this inside the app is a no-op in practice. Existing variables are never
- * overwritten.
+ * Typed access to environment variables. Everything is read lazily so that
+ * importing this module never throws (tests, `next build`). Standalone scripts
+ * load `.env` via src/db/load-env.ts first.
  */
-export function loadDotEnv(file = ".env"): void {
-  const full = path.resolve(process.cwd(), file);
-  if (!fs.existsSync(full)) return;
-  try {
-    process.loadEnvFile(full);
-  } catch {
-    // ignore: malformed file or unsupported runtime
-  }
-}
 
 export type LlmProviderKind = "mock" | "real";
 

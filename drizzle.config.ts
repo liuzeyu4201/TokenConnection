@@ -1,6 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 
-import { loadDotEnv } from "./src/lib/env";
+import { loadDotEnv } from "./src/db/load-env";
 
 loadDotEnv();
 

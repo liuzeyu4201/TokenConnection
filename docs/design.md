@@ -109,6 +109,8 @@ flowchart LR
 
 注意：DeepSeek 不一定支持严格的 structured output，`generateObject` 用 `mode: 'json'`，服务端用 zod 二次校验，校验失败重试一次，再失败退化为手工表单。
 
+> 阶段 1 实现说明：AI SDK ≥ 5 已移除 `generateObject` 的 `mode` 选项；等价做法是 openai-compatible provider 保持默认 `supportsStructuredOutputs: false`，SDK 会以 `response_format: { type: 'json_object' }` 调用并把 schema 注入 prompt。
+
 ## 7. 数据模型
 
 ```mermaid
@@ -263,6 +265,8 @@ create table inbox (
 - `POST /inbox/:id/apply { draft }` 用用户确认（可能修改过）的草稿落库
 - `POST /inbox/:id/discard`
 
+> 阶段 1 实现说明：`POST /inbox` 额外接受可选 `person_id`（详情页"追加一句"用来强制 update 到该人），返回值多两个字段——`error`（LLM 失败时的原因，此时 `draft` 为退化的空表单）和 `results`（意图为 query 时直接附带搜索结果，且该条 inbox 立即标为 `discarded`，不在待处理列表里出现）；另加 `GET /inbox/:id`（返回已存草稿与候选人，不调 LLM）和 `DELETE /people/:id/events/:eventId`（事件允许删除，见 §19 问题 1）。
+
 ### 认证
 
 - 阶段 1：所有 `/api/v1/*` 要求 `Authorization: Bearer <API_TOKEN>`，token 放 `.env`。Web 页面通过同源 cookie 带上同一个 token。
@@ -337,6 +341,7 @@ const Draft = z.object({
 
 1. 结构化过滤：`tier`、`tag`、`location` 作为 SQL where，先缩小集合
 2. 关键词：对 `name`、`summary`、`impression`、`how_met`、tag 名做 `ILIKE '%q%'`。中文不做分词，几百人规模下 ILIKE 是即时的；Postgres 中文全文检索要装 jieba / zhparser 扩展，不值得
+   > 阶段 1 实现说明：`location` 也纳入 ILIKE 字段（输入框里打"深圳"显然也指城市）；`q` 按空白切成多个词，词之间 AND、字段之间 OR，单个词时与原设计完全一致。
 3. 语义：`q` 经通义 embedding，pgvector 余弦相似度取 top-K（K = 30）
 4. 合并、排序（第 10 节），返回时带上 `reasons`，让用户知道为什么命中
 
@@ -448,6 +453,8 @@ volumes:
 
 Next.js 直接 `pnpm dev` 跑在宿主机。迁移用 `drizzle-kit`。
 
+> 阶段 1 实现说明：本机 5432 已被另一个 Docker Postgres 占用，compose 里宿主机端口改为 `${POSTGRES_PORT:-5433}:5432`，`DATABASE_URL` 同步用 5433；容器内仍是 5432。
+
 阶段 3（服务器）：同一个 compose 加一个 `app` 服务（多阶段 Dockerfile），反向代理 + HTTPS（Caddy 一行配置），每日 `pg_dump` 到对象存储。数据库不暴露公网端口。
 
 ## 16. 仓库结构（拟）
@@ -521,10 +528,10 @@ TokenConnection/
 
 ## 19. 开放问题
 
-1. 时间线事件要不要支持编辑 / 删除？现在定的是只追加。记错了怎么办：允许删除、不允许编辑？
+1. 时间线事件要不要支持编辑 / 删除？现在定的是只追加。记错了怎么办：允许删除、不允许编辑？（阶段 1 已定：允许删除，不允许编辑）
 2. 一个人可以有多个 `circle` 标签，地图上落在哪个扇区？默认第一个，还是让用户指定主圈子？
-3. 意图判断的默认倾向：模糊时偏向"查询"还是偏向"记录"？（记录有确认步骤，误判成本低，倾向记录）
-4. `impression` 要不要在搜索结果列表里显示？它是私密字段，但列表只有自己看
+3. 意图判断的默认倾向：模糊时偏向"查询"还是偏向"记录"？（记录有确认步骤，误判成本低，倾向记录）（阶段 1 已定：倾向记录）
+4. `impression` 要不要在搜索结果列表里显示？它是私密字段，但列表只有自己看（阶段 1 已定：只在详情页显示）
 5. geocoding 用哪家？高德需要 key，是否接受再多一个外部依赖
 6. iOS 原生客户端用 Swift 还是 Expo？影响阶段 3，不影响现在
-7. 语义搜索是否要把 `events` 单独向量化（一人多条向量），还是只拼进人的向量里？前者更准，后者简单。先后者
+7. 语义搜索是否要把 `events` 单独向量化（一人多条向量），还是只拼进人的向量里？前者更准，后者简单。先后者（阶段 1 已定：一人一条向量，events 拼进人的向量文本）

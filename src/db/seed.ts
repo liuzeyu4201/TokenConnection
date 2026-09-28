@@ -1,4 +1,4 @@
-import { loadDotEnv } from "@/lib/env";
+import { loadDotEnv } from "./load-env";
 import type { EventKind, Gender, TagKind, Tier } from "@/lib/schemas/enums";
 
 loadDotEnv();
