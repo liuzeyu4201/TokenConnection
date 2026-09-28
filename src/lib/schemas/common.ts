@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Validation messages surface in the UI, so use the Simplified Chinese locale.
+z.config(z.locales.zhCN());
+
 export const UuidSchema = z.uuid();
 
 /** ISO calendar date, e.g. 2026-09-28. */
