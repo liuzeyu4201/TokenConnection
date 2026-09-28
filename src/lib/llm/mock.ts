@@ -228,10 +228,19 @@ function guessEventKind(text: string): EventKind {
   return "note";
 }
 
-function extractHowMet(text: string): string | null {
+/** The clause describing how we met, without the leading date word and the name. */
+function extractHowMet(text: string, name: string | null): string | null {
   const clauses = text.split(/[，,。；;！!？?\n]/).map((c) => c.trim()).filter(Boolean);
   const clause = clauses.find((c) => /认识|见到|遇到|碰到|加了微信/.test(c));
-  return clause ?? null;
+  if (!clause) return null;
+  let cleaned = clause.replace(/^(今天|昨天|前天|上周|上个月|刚刚|最近|去年)/, "");
+  if (name) {
+    cleaned = cleaned
+      .replace(new RegExp(`(?:了)?(?:一个|个|一位|位)?(?:叫)?${escapeRegExp(name)}(?:的)?$`), "")
+      .replace(new RegExp(`^${escapeRegExp(name)}`), "");
+  }
+  cleaned = cleaned.trim();
+  return cleaned.length >= 2 ? cleaned : clause;
 }
 
 function extractImpression(text: string): string | null {
@@ -252,7 +261,7 @@ function buildSummary(
     .split(/[，,。；;！!？?\n]/)
     .map((c) => c.trim())
     .filter(Boolean)
-    .filter((c) => c !== parts.howMet)
+    .filter((c) => !(parts.howMet && /认识|见到|遇到|碰到|加了微信/.test(c)))
     .filter((c) => !(parts.impression && c.includes(parts.impression)))
     .filter((c) => !(parts.location && c === parts.location))
     .filter((c) => !(parts.name && c === parts.name))
@@ -337,7 +346,11 @@ export function mockExtract(
   const gender = guessGender(text);
 
   if (intent === "update" && target) {
-    const eventContent = stripContacts(text) || text;
+    // "小王上周帮我修了球拍" → "上周帮我修了球拍": the person is implied.
+    const eventContent =
+      stripContacts(text).replace(new RegExp(`^${escapeRegExp(target.name)}[，,、：:\\s]*`), "").trim() ||
+      stripContacts(text) ||
+      text;
     const events: DraftEvent[] = [
       { kind: guessEventKind(text), content: eventContent, happened_at: dateHint ?? today },
     ];
@@ -360,7 +373,7 @@ export function mockExtract(
 
   // intent === "add"
   const name = extractName(text);
-  const howMet = extractHowMet(text);
+  const howMet = extractHowMet(text, name);
   const summary = buildSummary(text, { impression, name, howMet, location });
   const events: DraftEvent[] = [];
   if (/认识|见面|见到|遇到|加了微信/.test(text)) {

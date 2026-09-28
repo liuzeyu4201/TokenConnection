@@ -47,7 +47,6 @@ export function UniversalInput() {
         body: { raw_text: raw, source: "web" },
       });
       setState({ kind: "parsed", result });
-      if (result.draft.intent !== "query") router.refresh();
     } catch (err) {
       setState({ kind: "failed", message: errorMessage(err) });
     }
