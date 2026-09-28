@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Inbox, Tags, Users } from "lucide-react";
+import { Home, Inbox, Radar, Tags, Users } from "lucide-react";
 import { cn } from "cn";
 
 type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean };
@@ -10,6 +10,7 @@ type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean
 const ITEMS: NavItem[] = [
   { href: "/", label: "首页", icon: Home, exact: true },
   { href: "/people", label: "人脉", icon: Users },
+  { href: "/map", label: "地图", icon: Radar },
   { href: "/tags", label: "标签", icon: Tags },
   { href: "/inbox", label: "收件箱", icon: Inbox },
 ];
@@ -50,7 +51,7 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
       </header>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="mx-auto grid max-w-3xl grid-cols-4">
+        <ul className="mx-auto grid max-w-3xl grid-cols-5">
           {ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(pathname, href, exact);
             return (

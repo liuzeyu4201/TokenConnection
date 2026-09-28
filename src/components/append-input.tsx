@@ -15,7 +15,19 @@ import type { ApiInboxParseResult } from "@/lib/types";
  * goes through the same inbox pipeline with a `person_id` hint, so the LLM is
  * forced into "update this person" mode; the draft is confirmed inline.
  */
-export function AppendInput({ personId, personName }: { personId: string; personName: string }) {
+export function AppendInput({
+  personId,
+  personName,
+  compact = false,
+  onApplied,
+}: {
+  personId: string;
+  personName: string;
+  /** Smaller input for popovers / list rows. */
+  compact?: boolean;
+  /** Called after the draft was applied (in addition to router.refresh()). */
+  onApplied?: () => void;
+}) {
   const router = useRouter();
   const [text, setText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -54,10 +66,10 @@ export function AppendInput({ personId, personName }: { personId: string; person
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={`追加一句关于 ${personName} 的事，例如「上周帮我修了球拍」`}
-          className="h-10 text-base md:text-sm"
+          placeholder={compact ? `追加一句关于 ${personName} 的事…` : `追加一句关于 ${personName} 的事，例如「上周帮我修了球拍」`}
+          className={compact ? "h-9 text-sm" : "h-10 text-base md:text-sm"}
         />
-        <Button type="submit" size="icon-lg" disabled={!text.trim() || loading} aria-label="提交">
+        <Button type="submit" size={compact ? "icon" : "icon-lg"} disabled={!text.trim() || loading} aria-label="提交">
           {loading ? <Loader2 className="animate-spin" /> : <ArrowUp />}
         </Button>
       </form>
@@ -76,6 +88,7 @@ export function AppendInput({ personId, personName }: { personId: string; person
             setText("");
             setDone("已追加。");
             router.refresh();
+            onApplied?.();
           }}
           onDiscarded={() => {
             setResult(null);

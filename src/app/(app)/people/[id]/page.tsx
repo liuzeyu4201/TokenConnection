@@ -5,6 +5,7 @@ import { ChevronLeft, MapPin } from "lucide-react";
 
 import { AppendInput } from "@/components/append-input";
 import { PersonEditForm } from "@/components/person-edit-form";
+import { PrimaryCirclePicker } from "@/components/primary-circle-picker";
 import { TagChip } from "@/components/tag-chip";
 import { TierBadge } from "@/components/tier-badge";
 import { Timeline } from "@/components/timeline";
@@ -40,8 +41,10 @@ function contactHref(key: string, value: string): string | null {
   return null;
 }
 
-export default async function PersonPage({ params }: PageProps<"/people/[id]">) {
+export default async function PersonPage({ params, searchParams }: PageProps<"/people/[id]">) {
   const { id } = await params;
+  const query = await searchParams;
+  const editGeo = (Array.isArray(query.edit) ? query.edit[0] : query.edit) === "geo";
   const person = await loadPerson(id);
   if (!person) notFound();
 
@@ -78,8 +81,15 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
             <span title={formatDate(person.last_contact_at)}>最近联系 {formatRelative(person.last_contact_at)}</span>
           ) : null}
           <span>添加于 {formatDate(person.created_at)}</span>
+          {person.lat != null && person.lng != null ? (
+            <Link href="/map?view=geo" className="underline-offset-2 hover:underline">
+              {person.geo_manual ? "手动坐标" : "已定位"} {person.lat.toFixed(2)}, {person.lng.toFixed(2)}
+            </Link>
+          ) : person.location ? (
+            <span className="text-amber-700">所在地未能定位，可在编辑里手动填坐标</span>
+          ) : null}
         </div>
-        <PersonEditForm person={person} />
+        <PersonEditForm person={person} initialOpen={editGeo} />
       </header>
 
       <section className="space-y-2">
@@ -132,14 +142,7 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
                 </div>
               ) : null}
               {circles.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-8 text-xs text-muted-foreground">圈子</span>
-                  {circles.map((t) => (
-                    <Link key={t.id} href={`/people?tag=${encodeURIComponent(t.name)}`}>
-                      <TagChip name={t.name} kind={t.kind} />
-                    </Link>
-                  ))}
-                </div>
+                <PrimaryCirclePicker personId={person.id} tags={person.tags} primaryCircleTagId={person.primary_circle_tag_id} />
               ) : null}
               {others.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
