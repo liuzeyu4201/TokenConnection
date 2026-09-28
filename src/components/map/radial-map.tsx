@@ -14,7 +14,41 @@ import { PersonPopover } from "./person-popover";
 
 /** Pixel radius of the outermost ring in viewBox units. */
 const R = 300;
+/** Room reserved around the outer ring for sector labels (grows with the font scale). */
 const PAD = 70;
+const LABEL_FONT = 12;
+
+/** Rough text width in viewBox units: CJK ≈ 1em, Latin/digits/space ≈ 0.55em. */
+function estimateTextWidth(text: string, fontSize: number): number {
+  let em = 0;
+  for (const ch of text) em += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 1 : 0.55;
+  return em * fontSize;
+}
+
+/**
+ * Sector label placement: anchor by angle (left half → end, right half →
+ * start, top/bottom → middle) and clamp into the viewport so no label is
+ * ever clipped, whatever the screen width.
+ */
+function sectorLabelPosition(
+  midAngle: number,
+  text: string,
+  fontSize: number,
+  radius: number,
+  limit: number,
+): { x: number; y: number; anchor: "start" | "middle" | "end" } {
+  const [px, py] = polar(midAngle, radius);
+  const cos = Math.cos(midAngle);
+  const anchor: "start" | "middle" | "end" = Math.abs(cos) < 0.2 ? "middle" : cos > 0 ? "start" : "end";
+  const width = estimateTextWidth(text, fontSize);
+  const half = fontSize * 0.6;
+  let x = px;
+  if (anchor === "start") x = Math.min(px, limit - width);
+  else if (anchor === "end") x = Math.max(px, -limit + width);
+  else x = Math.min(Math.max(px, -limit + width / 2), limit - width / 2);
+  const y = Math.min(Math.max(py, -limit + half), limit - half);
+  return { x: r3(x), y: r3(y), anchor };
+}
 const TWO_PI = Math.PI * 2;
 
 const TIER_COLOR: Record<Tier, string> = {
@@ -105,7 +139,11 @@ export function RadialMap({ data }: { data: ApiRadialMap }) {
   }
 
   const { rings, sectors, points } = data.layout;
-  const viewSize = (R + PAD) * 2;
+  // Labels scale with fs, so the reserved margin (and hence the viewBox) grows too.
+  const pad = r3(PAD + 46 * (fs - 1));
+  const viewSize = r3((R + pad) * 2);
+  const labelLimit = R + pad - 4;
+  const labelFontSize = r3(LABEL_FONT * fs);
 
   return (
     <div className="relative">
@@ -163,7 +201,7 @@ export function RadialMap({ data }: { data: ApiRadialMap }) {
       <div className="overflow-hidden rounded-2xl border bg-card">
         <svg
           ref={svgRef}
-          viewBox={`${-R - PAD} ${-R - PAD} ${viewSize} ${viewSize}`}
+          viewBox={`${r3(-R - pad)} ${r3(-R - pad)} ${viewSize} ${viewSize}`}
           className="block h-auto w-full touch-none select-none"
           style={{ maxHeight: "78vh" }}
           role="img"
@@ -188,10 +226,9 @@ export function RadialMap({ data }: { data: ApiRadialMap }) {
             {/* Sector labels */}
             {sectors.map((s) => {
               const mid = (s.startAngle + s.endAngle) / 2 - Math.PI / 2;
-              const [x, y] = polar(mid, R + 42);
-              const anchor = Math.abs(Math.cos(mid)) < 0.2 ? "middle" : Math.cos(mid) > 0 ? "start" : "end";
+              const { x, y, anchor } = sectorLabelPosition(mid, `${s.name} ${s.count}`, labelFontSize, R + 30 + 12 * fs, labelLimit);
               return (
-                <text key={`s-${s.name}`} x={x} y={y} textAnchor={anchor} dominantBaseline="middle" fontSize={r3(12 * fs)} fill="#334155" fontWeight={600}>
+                <text key={`s-${s.name}`} x={x} y={y} textAnchor={anchor} dominantBaseline="middle" fontSize={labelFontSize} fill="#334155" fontWeight={600}>
                   {s.name} <tspan fill="#94a3b8" fontWeight={400}>{s.count}</tspan>
                 </text>
               );
