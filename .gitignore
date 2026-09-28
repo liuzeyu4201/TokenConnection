@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# build / test output
+dist/
+coverage/
+*.tsbuildinfo
+
+# environment
+.env
+.env.*.local
+.env.local
+
+# database
+pgdata/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# misc
+.vercel
+.turbo/
