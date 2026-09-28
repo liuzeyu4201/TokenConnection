@@ -1,137 +1,122 @@
-# TokenConnection · 人脉
+<p align="center">
+  <img src="./assets/cover.png" alt="TokenConnection" width="100%">
+</p>
 
-只给自己用的人脉库：用一句自然语言把人记进去，系统自动归档；需要某类人的时候一句话把人找出来，按关系远近排好。设计文档见 [`docs/design.md`](docs/design.md)，本仓库已实现「阶段 1：能每天用」与「阶段 2：能看」（同心圆地图、地理地图、该联系了提醒）。
+# TokenConnection
 
-技术栈：Next.js 16（App Router）+ TypeScript + Drizzle + Postgres 16 / pgvector + Tailwind / shadcn/ui + Vercel AI SDK（DeepSeek 抽取、硅基流动 Qwen3-Embedding embedding），包管理 pnpm。
-
-## 安装与运行
-
-前置：Node ≥ 20、pnpm、Docker。
-
-```bash
-# 1. 启动数据库（pgvector/pgvector:pg16，宿主机端口默认 5433）
-cp .env.example .env          # 按需修改 POSTGRES_PASSWORD / API_TOKEN
-docker compose up -d
-
-# 2. 安装依赖、建表
-pnpm install
-pnpm db:migrate               # 执行 drizzle/ 下的迁移（含 create extension vector）
-
-# 3. 填充示例数据（14 个虚构人物，覆盖 5 个 tier）
-pnpm db:seed                  # 已有数据时会跳过；pnpm db:seed --reset 可重建
-
-# 4. 启动
-pnpm dev                      # http://localhost:3000
-```
-
-页面：`/` 首页（万能输入框：自动 / 记人 / 找人 三种模式，记人模式带填空模板，Tab 跳到下一个【】空位，没填的自动忽略；待处理、该联系了、最近添加/联系）、`/people` 列表与筛选、`/people/[id]` 详情（追加一句、编辑、设为主圈子、手动坐标）、`/map` 同心圆地图、`/map?view=geo` 地理地图、`/reminders` 该联系了、`/tags`、`/inbox`。
-
-首页即万能输入框：直接输入「今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情」会得到一张可编辑的草稿卡，点「确认入库」即完成记录；输入「想找个人教我打羽毛球」会原地展开搜索结果。`+` 开头强制记录，`?` 开头强制查询。
-
-手机上：用 Safari 打开局域网地址（`pnpm dev` 会打印 `Network: http://192.168.x.x:3000`），「添加到主屏幕」即可作为 PWA 使用；快捷指令的配置见 [`shortcuts/README.md`](shortcuts/README.md)。
-
-## 环境变量
-
-`.env.example` 里有全部变量和说明，关键几项：
-
-| 变量 | 说明 |
-| --- | --- |
-| `DATABASE_URL` | Postgres 连接串，端口要和 `POSTGRES_PORT` 一致（默认 5433，因为 5432 常被本机其他 Postgres 占用） |
-| `POSTGRES_PASSWORD` / `POSTGRES_PORT` | 给 docker compose 用 |
-| `API_TOKEN` | `/api/v1/*` 的 Bearer token；web 页面会自动以同源 cookie 带上同一个 token |
-| `LLM_PROVIDER` | `mock`（默认，无需 key）或 `real` |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | 抽取与意图判断（`deepseek-chat`，JSON 模式；一次抽取约 1 秒。若该别名下线，改用 `deepseek-flash`） |
-| `EMBEDDING_API_KEY` / `EMBEDDING_MODEL` / `EMBEDDING_BASE_URL` / `EMBEDDING_DIM` | 任意 OpenAI 兼容的 `/embeddings` 接口。默认硅基流动 `Qwen/Qwen3-Embedding-4B`，通过 `dimensions` 参数截到 1024 维（`EMBEDDING_DIM` 必须是 1024，与向量列一致） |
-
-### 切换到真实 LLM
-
-1. 在 [DeepSeek 开放平台](https://platform.deepseek.com/) 和 [硅基流动](https://cloud.siliconflow.cn/) 分别申请 key。
-2. 在 `.env` 中填入 `DEEPSEEK_API_KEY`、`EMBEDDING_API_KEY`，并把 `LLM_PROVIDER=real`。`.env` 已在 `.gitignore` 中，不会进入 git。
-3. 重启 `pnpm dev`。已有数据的向量是 mock 模型算的，需要全量重算一次：`pnpm db:reembed`（`people_embeddings.model` 字段记录了每条向量用的模型）。
-
-Embedding 模型的选择有实测依据：在 14 人 seed 上用 6 个找人问题测 top-1，`Qwen/Qwen3-Embedding-4B`、`-8B`、`-0.6B` 都是 5/6（唯一"错"的一题是把职业教练排在校队选手前面，语义上并不错，最终排序再由关系远近纠正），而 `Qwen/Qwen3-VL-Embedding-8B` 只有 2/6、相似度挤在 0.28–0.44 之间，不要用。查询侧会自动加一条任务指令前缀（Qwen3-Embedding 是指令微调模型，只加在 query 侧），换成不吃指令的模型也不影响正确性。
-
-`LLM_PROVIDER=mock` 时不访问网络：用正则 / 关键词启发式生成草稿，embedding 是基于文本概念哈希的确定性伪向量，足够把整个流程跑通并做开发测试；开发、seed 和单元测试默认都走 mock。无论哪种模式，LLM 失败都不会阻止记人——inbox 会标记 `error`，前端给出一张把原文预填进摘要的空表单。
-
-## 常用脚本
-
-| 命令 | 作用 |
-| --- | --- |
-| `pnpm dev` / `pnpm build` / `pnpm start` | 开发 / 构建 / 生产启动 |
-| `pnpm typecheck` | `next typegen && tsc --noEmit` |
-| `pnpm lint` | ESLint |
-| `pnpm test` | vitest 单元测试（排序、schema、mock 抽取、鉴权） |
-| `pnpm db:generate` | 根据 `src/db/schema.ts` 生成迁移到 `drizzle/` |
-| `pnpm db:migrate` | 执行迁移 |
-| `pnpm db:seed [--reset]` | 示例数据 |
-| `pnpm db:reembed` | 用当前 provider 重算全部向量 |
-| `pnpm db:geocode [--all]` | 用离线城市表为有所在地但无坐标（且非手动）的人回填经纬度；`--all` 重算全部非手动的人 |
-| `pnpm db:studio` | Drizzle Studio |
-
-## API 一览
-
-前缀 `/api/v1`，全部 JSON，所有请求需要 `Authorization: Bearer <API_TOKEN>`。错误统一为 `{ "error": { "code": "...", "message": "..." } }`。
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `GET` | `/people?tier=&tag=&location=&q=&cursor=&limit=` | 列表：结构化筛选 + 关键词，keyset 分页返回 `{ items, next_cursor }` |
-| `POST` | `/people` | 新建（可带 `tags`） |
-| `GET` | `/people/:id` | 详情（含 `tags`、`events`） |
-| `PATCH` | `/people/:id` | 更新任意字段（可带 `tags` 整体替换；阶段 2 新增 `primary_circle_tag_id`、`lat`/`lng`（视为手动坐标）、`geo_manual: false` 表示恢复自动 geocode） |
-| `DELETE` | `/people/:id` | 删除 |
-| `PUT` | `/people/:id/tags` | `{ tags: [{ name, kind }] }` 整体设置标签 |
-| `GET` | `/people/:id/events` | 时间线 |
-| `POST` | `/people/:id/events` | 追加事件 `{ kind, content, happened_at? }`，自动更新 `last_contact_at` 并重算向量 |
-| `DELETE` | `/people/:id/events/:eventId` | 删除事件（事件只追加、可删除、不可编辑） |
-| `GET` | `/tags?kind=` | 标签列表（含 `people_count`） |
-| `POST` | `/tags` | 新建 |
-| `PATCH` | `/tags/:id` | 改名 / 改 kind |
-| `DELETE` | `/tags/:id` | 删除 |
-| `GET` | `/search?q=&tier=&tag=&location=&limit=` | 三层搜索，返回 `{ hits: [{ person, score, reasons, semantic, keyword_hit }] }` |
-| `POST` | `/inbox` | `{ raw_text, source, person_id? }` 落库并立即解析，返回 `{ inbox, draft, candidates, results?, error }` |
-| `GET` | `/inbox?status=pending` | 收件箱列表 |
-| `GET` | `/inbox/:id` | 单条（含已存草稿与候选人，不调 LLM） |
-| `POST` | `/inbox/:id/reparse` | 重新解析 |
-| `POST` | `/inbox/:id/apply` | `{ draft }` 用确认后的草稿落库，返回 `{ inbox, person }` |
-| `POST` | `/inbox/:id/discard` | 丢弃 |
-| `GET` | `/map/radial` | 同心圆地图数据：`{ people, layout: { rings, sectors, points }, skills, locations }`，坐标为单位圆内的 (x, y) |
-| `GET` | `/map/geo` | 地理地图数据：`{ clusters, unlocated, no_location_count, located_count, skills }` |
-| `GET` | `/reminders` | 该联系了：`{ items: [{ person, basis, basis_at, threshold_days, days_since, overdue_days }], thresholds }` |
-| `GET` | `/geo/cities?q=` | 离线城市表查询：`{ match, items }`，`match` 为 `geocode(q)` 的结果 |
-
-提醒阈值在 `src/lib/reminders/thresholds.ts`（Best Bros 30 天、Close friends 60 天、Friends 120 天；另外两级不提醒），基准时间 `last_contact_at` → `met_at` → `created_at`。
-
-地图不依赖任何外部服务：所在地用 `src/lib/geo/cities.ts` 的离线城市表（GeoNames cities15000，CC BY 4.0；全部省级行政区与地级市、港澳台主要城市、约 100 个世界城市）匹配，匹配不到的人会出现在地理地图下方的「未定位」里，可在详情页编辑中手动填坐标或搜城市名填入；底图是随包附带的 `world-atlas` 110m 国界。
-
-排序公式与阈值在 `src/lib/search/rank.ts` 一处维护：`score = 0.60*semantic + 0.25*tier_rank/5 + 0.15*keyword_hit`，语义相似度低于 0.30 且无关键词命中的不返回。
-
-例子：
-
-```bash
-TOKEN=$(grep '^API_TOKEN=' .env | cut -d= -f2)
-curl -s -G -H "Authorization: Bearer $TOKEN" --data-urlencode "q=羽毛球教练" http://localhost:3000/api/v1/search
-curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"raw_text":"今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情","source":"shortcut"}' \
-  http://localhost:3000/api/v1/inbox
-```
+只给自己用的人脉库。用一句话把人记进去，需要某类人的时候一句话找出来，按关系远近排好。
 
 ## 目录
 
+- [现在做到哪一步](#现在做到哪一步)
+- [架构](#架构)
+- [快速开始](#快速开始)
+- [仓库结构](#仓库结构)
+- [公开命令](#公开命令)
+- [文档](#文档)
+- [安全](#安全)
+
+## 现在做到哪一步
+
+阶段 1 和阶段 2 已经能用：记人、找人、标签、时间线、同心圆地图、地理地图、该联系了。
+
+还没做的是登录、把服务放到自己的服务器上，以及 iOS 客户端。手机上现在用浏览器「添加到主屏幕」，或按 [快捷指令说明](shortcuts/README.md) 把一句话丢进收件箱。
+
+规格和取舍见 [设计文档](docs/design.md)。
+
+## 架构
+
+```mermaid
+flowchart LR
+  A[浏览器 / 快捷指令] --> B[Next.js 页面与 /api/v1]
+  B --> C[Postgres 与 pgvector]
+  B --> D[DeepSeek 抽取]
+  B --> E[硅基流动 Embedding]
 ```
-docs/design.md            设计文档（唯一的需求与规格来源）
-docker-compose.yml        pgvector Postgres
-drizzle/                  迁移文件
-shortcuts/                iOS 快捷指令配置说明
-src/app/(app)/            页面：/ /people /people/[id] /map /reminders /tags /inbox
-src/app/api/v1/           REST 路由
-src/proxy.ts              Bearer / cookie 鉴权
-src/db/                   Drizzle schema、迁移、seed
-src/lib/schemas/          zod：输入校验 + LLM Draft
-src/lib/services/         people / tags / events / inbox / search 业务函数（API 与页面共用）
-src/lib/llm/              provider / extract / embed / prompts / mock
-src/lib/search/rank.ts    排序公式与阈值
-src/lib/geo/              离线城市表 + geocode
-src/lib/map/              同心圆布局（纯函数）、主圈子回退规则
-src/lib/reminders/        提醒阈值与计算
-src/components/           UI 组件
+
+- `src/app/(app)/`：首页、人脉、地图、标签、收件箱。
+- `src/app/api/v1/`：同一套接口，给页面和以后的客户端用。
+- `src/lib/services/`：业务函数。页面和路由都走这里，不各自查库。
+- `src/lib/llm/`：抽取和向量。`LLM_PROVIDER=mock` 时不访问网络。
+- `docker-compose.yml`：本地 Postgres。数据库以后换机器，应用代码不用改。
+
+## 快速开始
+
+需要 Node 20 及以上、pnpm、Docker。
+
+```bash
+cp .env.example .env
+docker compose up -d
+pnpm install
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
 ```
+
+打开 http://localhost:3000。`pnpm db:seed` 放入 14 个虚构的人；已有数据时会跳过，`pnpm db:seed --reset` 会重建。
+
+首页输入框有三种模式：自动、记人、找人。记人模式有填空模板，Tab 跳到下一个【】，没填的空会去掉。`+` 开头强制记录，`?` 开头强制查询。
+
+### 换上真实模型
+
+1. 在 [DeepSeek](https://platform.deepseek.com/) 和 [硅基流动](https://cloud.siliconflow.cn/) 申请 key。
+2. 写入 `.env` 的 `DEEPSEEK_API_KEY`、`EMBEDDING_API_KEY`，设 `LLM_PROVIDER=real`。
+3. 重启 `pnpm dev`，再跑 `pnpm db:reembed`。
+
+默认向量模型是硅基流动上的 `Qwen/Qwen3-Embedding-4B`，截到 1024 维。`Qwen3-VL-Embedding-8B` 在人物文本上区分度很差，不要用。查询侧会自动加一条任务说明，文档侧不加。
+
+模型失败时仍然可以记人：收件箱标上错误，页面给出一张空表单，原文预填在摘要里。
+
+## 仓库结构
+
+```text
+.
+├── assets                  # 封面
+├── docs                    # 设计文档、接口说明、文档入口
+├── drizzle                 # 数据库迁移
+├── public                  # 图标与 PWA
+├── shortcuts               # iPhone 快捷指令说明
+├── src
+│   ├── app/(app)           # 页面
+│   ├── app/api/v1          # REST
+│   ├── components          # 界面
+│   ├── db                  # schema、迁移入口、seed
+│   ├── lib/services        # 业务函数，页面和 API 共用
+│   ├── lib/llm             # 抽取、向量、mock
+│   ├── lib/search          # 排序
+│   ├── lib/geo             # 离线城市表
+│   ├── lib/map             # 同心圆布局
+│   └── lib/reminders       # 该联系了
+└── docker-compose.yml      # Postgres 16 + pgvector
+```
+
+`.env`、依赖和构建产物在 `.gitignore` 里，不进入版本库。
+
+## 公开命令
+
+| 命令 | 用途 |
+| --- | --- |
+| `pnpm dev` / `pnpm build` / `pnpm start` | 开发、构建、生产启动 |
+| `pnpm typecheck` / `pnpm lint` / `pnpm test` | 类型、ESLint、单元测试 |
+| `pnpm db:generate` | 按 schema 生成迁移 |
+| `pnpm db:migrate` | 执行迁移 |
+| `pnpm db:seed` | 示例数据。`--reset` 先清空再写入 |
+| `pnpm db:reembed` | 用当前模型重算全部向量 |
+| `pnpm db:geocode` | 给还没坐标的人补经纬度。`--all` 重算所有非手动坐标 |
+| `pnpm db:studio` | 打开 Drizzle Studio |
+
+## 文档
+
+入口是 [文档目录](docs/README.md)。
+
+| 你要… | 打开 |
+| --- | --- |
+| 理解这个人脉库要做什么 | [设计文档](docs/design.md) |
+| 调接口 | [HTTP API](docs/api.md) |
+| 在手机上记一句 | [快捷指令](shortcuts/README.md) |
+
+## 安全
+
+真实的 key、数据库口令和 `API_TOKEN` 只放在被忽略的 `.env`。`.env.example` 里这些值是空的或占位符。文档不写密钥，也不写真实的联系人。
+
+开发服务监听所有网卡，页面本身不登录：谁能打开这个地址，谁就能看到库里的人。只在自己的电脑上这样用。换一台机器或给手机长期用之前，先把 `API_TOKEN` 和 `POSTGRES_PASSWORD` 换成随机串。

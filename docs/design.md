@@ -480,6 +480,8 @@ Next.js 直接 `pnpm dev` 跑在宿主机。迁移用 `drizzle-kit`。
 
 ## 16. 仓库结构（拟）
 
+> 2026-09-28：下面是开工时的草图。现在以 README 的「仓库结构」为准。封面在 `assets/`，接口说明在 `docs/api.md`，文档入口是 `docs/README.md`。
+
 ```
 TokenConnection/
   docs/design.md

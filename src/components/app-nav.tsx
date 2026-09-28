@@ -5,6 +5,24 @@ import { usePathname } from "next/navigation";
 import { Home, Inbox, Radar, Tags, Users } from "lucide-react";
 import { cn } from "cn";
 
+function BrandMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="284 122 256 256" className={className} aria-hidden="true">
+      <g fill="none" stroke="#6a2c3c" strokeWidth="10" strokeLinecap="round">
+        <circle cx="412" cy="250" r="40" />
+        <circle cx="412" cy="250" r="80" />
+        <circle cx="412" cy="250" r="122" />
+      </g>
+      <g fill="#6a2c3c">
+        <circle cx="412" cy="250" r="8" />
+        <circle cx="456" cy="216" r="7" />
+        <circle cx="358" cy="292" r="7" />
+        <circle cx="490" cy="306" r="7" />
+      </g>
+    </svg>
+  );
+}
+
 type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean };
 
 const ITEMS: NavItem[] = [
@@ -27,7 +45,7 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
       <header className="sticky top-0 z-40 hidden border-b bg-background/90 backdrop-blur md:block">
         <div className="mx-auto flex h-12 max-w-3xl items-center gap-6 px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="inline-block size-5 rounded-full border-[3px] border-foreground" />
+            <BrandMark className="size-5" />
             人脉
           </Link>
           <nav className="flex items-center gap-1 text-sm">
