@@ -14,11 +14,22 @@ export { buildPersonEmbeddingText, EMBED_RECENT_EVENTS };
 
 export const EMBED_TIMEOUT_MS = 15_000;
 
-/** embed(text) → number[1024] (design.md §13). */
-export async function embedText(text: string): Promise<number[]> {
-  const value = text.trim() || " ";
-  if (isMockProvider()) return mockEmbed(value);
+/**
+ * Qwen3-Embedding models are instruction-tuned: the *query* side carries a task
+ * instruction, documents are embedded as-is. On the 14-person seed this lifted
+ * the correct person's lead over the runner-up from +0.147 to +0.177 cosine.
+ */
+export const QUERY_INSTRUCTION =
+  "Instruct: 给定一个用户的找人需求，检索最能满足这个需求的人的资料\nQuery: ";
 
+export type EmbedKind = "document" | "query";
+
+/** embed(text) → number[1024] (design.md §13). */
+export async function embedText(text: string, kind: EmbedKind = "document"): Promise<number[]> {
+  const trimmed = text.trim() || " ";
+  if (isMockProvider()) return mockEmbed(trimmed);
+
+  const value = kind === "query" ? QUERY_INSTRUCTION + trimmed : trimmed;
   try {
     const result = await embed({
       model: getEmbeddingModel(),

@@ -38,7 +38,17 @@ export function getDeepSeekConfig() {
   };
 }
 
-export function getDashScopeConfig() {
+export const DEFAULT_EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B";
+export const DEFAULT_EMBEDDING_BASE_URL = "https://api.siliconflow.cn/v1";
+
+/**
+ * Any OpenAI-compatible `/embeddings` endpoint. Default is SiliconFlow serving
+ * Qwen3-Embedding-4B, whose native 2560 dims are truncated server-side to
+ * EMBEDDING_DIM via the `dimensions` parameter (Matryoshka embeddings).
+ * Qwen3-VL-Embedding-8B was tried first and scored near random on the
+ * templated person text (top-1 2/6 vs 5/6 for the text models).
+ */
+export function getEmbeddingConfig() {
   const dim = Number(process.env.EMBEDDING_DIM || EMBEDDING_DIM);
   if (dim !== EMBEDDING_DIM) {
     throw new Error(
@@ -46,11 +56,13 @@ export function getDashScopeConfig() {
     );
   }
   return {
-    apiKey: required("DASHSCOPE_API_KEY"),
-    model: process.env.DASHSCOPE_EMBEDDING_MODEL || "text-embedding-v3",
-    baseURL:
-      process.env.DASHSCOPE_BASE_URL ||
-      "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    apiKey: required("EMBEDDING_API_KEY"),
+    model: getEmbeddingModelId(),
+    baseURL: process.env.EMBEDDING_BASE_URL || DEFAULT_EMBEDDING_BASE_URL,
     dimensions: dim,
   };
+}
+
+export function getEmbeddingModelId(): string {
+  return process.env.EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 }

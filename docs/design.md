@@ -102,9 +102,9 @@ flowchart LR
 | 校验 | zod | 一份 schema 同时用于 API 输入校验和 LLM 输出约束 |
 | UI | Tailwind + shadcn/ui | 快，移动端友好 |
 | 地图 | D3（极坐标布局） | 同心圆地图几十行代码；无依赖大图库 |
-| LLM SDK | Vercel AI SDK（`ai` + `@ai-sdk/openai-compatible`） | DeepSeek 和 DashScope 都是 OpenAI 兼容接口，一个 provider 适配器搞定；`generateObject` 直接出 zod 校验过的对象 |
-| 抽取模型 | DeepSeek `deepseek-chat` | 便宜、中文好、JSON 模式可用 |
-| Embedding | 通义千问 `text-embedding-v3`（1024 维） | DeepSeek 没有 embedding 接口；DashScope 兼容 OpenAI 接口 |
+| LLM SDK | Vercel AI SDK（`ai` + `@ai-sdk/openai-compatible`） | DeepSeek 和硅基流动都是 OpenAI 兼容接口，一个 provider 适配器搞定；`generateObject` 直接出 zod 校验过的对象 |
+| 抽取模型 | DeepSeek `deepseek-chat` | 便宜、中文好、JSON 模式可用。实测 2026-09：一次抽取约 1 秒；`/models` 只列出 `deepseek-flash` 与 `deepseek-v4-pro`，`deepseek-chat` 仍可用，若下线改 `deepseek-flash` |
+| Embedding | 硅基流动 `Qwen/Qwen3-Embedding-4B`，`dimensions=1024` 截断 | 原计划通义 `text-embedding-v3`，用户实际使用硅基流动（决策 D-05 更新）。先试 `Qwen3-VL-Embedding-8B`，在人的模板文本上 top-1 只有 2/6、相似度挤在 0.28–0.44；换文本模型 `Qwen3-Embedding-4B/8B/0.6B` 均 5/6 且区分度大，取 4B。查询侧加任务指令前缀（指令微调模型只在 query 侧加） |
 | 包管理 | pnpm | 本机已有 |
 
 注意：DeepSeek 不一定支持严格的 structured output，`generateObject` 用 `mode: 'json'`，服务端用 zod 二次校验，校验失败重试一次，再失败退化为手工表单。
@@ -391,26 +391,32 @@ score = 0.60 * semantic          // 余弦相似度，[0,1]
 
 ```
 src/lib/llm/
-  provider.ts   // 两个 OpenAI 兼容 provider：deepseek、dashscope，从 env 读 base URL / key / model
+  provider.ts   // 两个 OpenAI 兼容 provider：deepseek、embedding（任意 /embeddings 接口），从 env 读 base URL / key / model
   extract.ts    // extract(rawText, peopleIndex) -> Draft
-  embed.ts      // embed(text) -> number[1024]；embedPerson(personId) 拼模板并写库
+  embed.ts      // embedText(text, kind) -> number[1024]，kind=query 时加任务指令前缀；embedPerson(personId) 拼模板并写库
   prompts.ts    // system prompt、few-shot 示例
 ```
 
-环境变量：
+环境变量（实际实现，替代原设计里的 DASHSCOPE_*）：
 
 ```
 DEEPSEEK_API_KEY=
 DEEPSEEK_MODEL=deepseek-chat
-DASHSCOPE_API_KEY=
-DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+EMBEDDING_API_KEY=
+EMBEDDING_MODEL=Qwen/Qwen3-Embedding-4B
+EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
 EMBEDDING_DIM=1024
 ```
 
+密钥只放在 `.env`（已在 `.gitignore`），仓库里只有 `.env.example`。
+
+更新意图下的字段合并（实测后补的规则）：`update` 草稿里 person 的非 null 字段会整体覆盖旧值，因此 prompt 要求没有新信息的字段一律 null；`summary` / `impression` 只在确实变化时填，且必须是合并了旧值的完整一句话。为此人员索引每行带 80 字摘要与 40 字印象，而不是原设计的"一行摘要"。
+
 隐私边界（已知并接受，方便优先）：
 
-- 抽取时原文整句发给 DeepSeek，其中会包含联系方式。阶段 2 可选加固：发送前用正则把手机号 / 微信号替换为占位符，返回后还原
-- embedding 文本不含联系方式；查询词会发给通义
+- 抽取时原文整句发给 DeepSeek，其中会包含联系方式；人员索引里的摘要和印象也随 prompt 发出。阶段 2 可选加固：发送前用正则把手机号 / 微信号替换为占位符，返回后还原
+- embedding 文本不含联系方式；查询词会发给硅基流动
 - 换 embedding 模型或维度需要全量重算，`people_embeddings.model` 字段用来识别哪些是旧模型算的
 
 ## 14. 地图（阶段 2）
@@ -536,7 +542,7 @@ TokenConnection/
 - D-02 不记人↔人的边。地图用同心圆而不是力导向图。将来要加就加一张 `relations` 表
 - D-03 Postgres + pgvector 从第一天开始，Docker 起。不用 SQLite 过渡，避免迁移和多养一个向量库
 - D-04 联系方式存 jsonb 键值对，不写死字段
-- D-05 LLM：DeepSeek 做抽取，通义千问做 embedding；隐私上接受原文出本机，方便优先
+- D-05 LLM：DeepSeek 做抽取，embedding 走 OpenAI 兼容接口；隐私上接受原文出本机，方便优先。2026-09-28 更新：embedding 实际用硅基流动 `Qwen/Qwen3-Embedding-4B`（用户有该平台 key；VL 版实测不适合，见 §6）
 - D-06 技术栈 TypeScript：Next.js + Drizzle + Tailwind/shadcn + D3 + Vercel AI SDK
 - D-07 手机录入阶段 1 用 PWA + iOS 快捷指令过渡，不等原生 app
 - D-08 地图放阶段 2，阶段 1 只做添加和查找

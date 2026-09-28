@@ -1,13 +1,19 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
-import { getDashScopeConfig, getDeepSeekConfig, getLlmProviderKind } from "@/lib/env";
+import {
+  getDeepSeekConfig,
+  getEmbeddingConfig,
+  getEmbeddingModelId,
+  getLlmProviderKind,
+} from "@/lib/env";
 
 import { MOCK_EMBEDDING_MODEL } from "./mock";
 
 /**
  * Two OpenAI-compatible providers (design.md §13):
  * - deepseek: chat model for extraction / intent detection
- * - dashscope: Qwen text-embedding-v3 for embeddings
+ * - embedding: any OpenAI-compatible /embeddings endpoint (default SiliconFlow
+ *   serving Qwen3-VL-Embedding-8B, truncated to EMBEDDING_DIM via `dimensions`)
  * Both are created lazily so the mock provider never needs API keys.
  */
 
@@ -32,17 +38,17 @@ export function getExtractionModel() {
 }
 
 export function getEmbeddingModel() {
-  const config = getDashScopeConfig();
-  const dashscope = createOpenAICompatible({
-    name: "dashscope",
+  const config = getEmbeddingConfig();
+  const provider = createOpenAICompatible({
+    name: "embedding",
     baseURL: config.baseURL,
     apiKey: config.apiKey,
   });
-  return dashscope.embeddingModel(config.model);
+  return provider.embeddingModel(config.model);
 }
 
 /** Stored in people_embeddings.model to detect vectors from older models. */
 export function getEmbeddingModelName(): string {
   if (isMockProvider()) return MOCK_EMBEDDING_MODEL;
-  return process.env.DASHSCOPE_EMBEDDING_MODEL || "text-embedding-v3";
+  return getEmbeddingModelId();
 }

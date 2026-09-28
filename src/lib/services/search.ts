@@ -93,7 +93,7 @@ export async function searchPeople(query: SearchQuery): Promise<SearchResponse> 
   const semantic = new Map<string, number>();
   let semanticSkipped = false;
   try {
-    const vector = await embedText(q);
+    const vector = await embedText(q, "query");
     const similarity = sql<number>`1 - (${cosineDistance(peopleEmbeddings.embedding, vector)})`;
     const semanticRows = await db
       .select({ id: peopleEmbeddings.person_id, similarity })

@@ -2,7 +2,7 @@
 
 只给自己用的人脉库：用一句自然语言把人记进去，系统自动归档；需要某类人的时候一句话把人找出来，按关系远近排好。设计文档见 [`docs/design.md`](docs/design.md)，本仓库已实现「阶段 1：能每天用」与「阶段 2：能看」（同心圆地图、地理地图、该联系了提醒）。
 
-技术栈：Next.js 16（App Router）+ TypeScript + Drizzle + Postgres 16 / pgvector + Tailwind / shadcn/ui + Vercel AI SDK（DeepSeek 抽取、通义千问 embedding），包管理 pnpm。
+技术栈：Next.js 16（App Router）+ TypeScript + Drizzle + Postgres 16 / pgvector + Tailwind / shadcn/ui + Vercel AI SDK（DeepSeek 抽取、硅基流动 Qwen3-Embedding embedding），包管理 pnpm。
 
 ## 安装与运行
 
@@ -40,14 +40,16 @@ pnpm dev                      # http://localhost:3000
 | `POSTGRES_PASSWORD` / `POSTGRES_PORT` | 给 docker compose 用 |
 | `API_TOKEN` | `/api/v1/*` 的 Bearer token；web 页面会自动以同源 cookie 带上同一个 token |
 | `LLM_PROVIDER` | `mock`（默认，无需 key）或 `real` |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | 抽取与意图判断（`deepseek-chat`，JSON 模式） |
-| `DASHSCOPE_API_KEY` / `DASHSCOPE_EMBEDDING_MODEL` / `DASHSCOPE_BASE_URL` / `EMBEDDING_DIM` | 通义千问 `text-embedding-v3`，1024 维，OpenAI 兼容接口 |
+| `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | 抽取与意图判断（`deepseek-chat`，JSON 模式；一次抽取约 1 秒。若该别名下线，改用 `deepseek-flash`） |
+| `EMBEDDING_API_KEY` / `EMBEDDING_MODEL` / `EMBEDDING_BASE_URL` / `EMBEDDING_DIM` | 任意 OpenAI 兼容的 `/embeddings` 接口。默认硅基流动 `Qwen/Qwen3-Embedding-4B`，通过 `dimensions` 参数截到 1024 维（`EMBEDDING_DIM` 必须是 1024，与向量列一致） |
 
 ### 切换到真实 LLM
 
-1. 在 [DeepSeek 开放平台](https://platform.deepseek.com/) 和 [阿里云百炼 / DashScope](https://dashscope.console.aliyun.com/) 分别申请 key。
-2. 在 `.env` 中填入 `DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`，并把 `LLM_PROVIDER=real`。
+1. 在 [DeepSeek 开放平台](https://platform.deepseek.com/) 和 [硅基流动](https://cloud.siliconflow.cn/) 分别申请 key。
+2. 在 `.env` 中填入 `DEEPSEEK_API_KEY`、`EMBEDDING_API_KEY`，并把 `LLM_PROVIDER=real`。`.env` 已在 `.gitignore` 中，不会进入 git。
 3. 重启 `pnpm dev`。已有数据的向量是 mock 模型算的，需要全量重算一次：`pnpm db:reembed`（`people_embeddings.model` 字段记录了每条向量用的模型）。
+
+Embedding 模型的选择有实测依据：在 14 人 seed 上用 6 个找人问题测 top-1，`Qwen/Qwen3-Embedding-4B`、`-8B`、`-0.6B` 都是 5/6（唯一"错"的一题是把职业教练排在校队选手前面，语义上并不错，最终排序再由关系远近纠正），而 `Qwen/Qwen3-VL-Embedding-8B` 只有 2/6、相似度挤在 0.28–0.44 之间，不要用。查询侧会自动加一条任务指令前缀（Qwen3-Embedding 是指令微调模型，只加在 query 侧），换成不吃指令的模型也不影响正确性。
 
 `LLM_PROVIDER=mock` 时不访问网络：用正则 / 关键词启发式生成草稿，embedding 是基于文本概念哈希的确定性伪向量，足够把整个流程跑通并做开发测试；开发、seed 和单元测试默认都走 mock。无论哪种模式，LLM 失败都不会阻止记人——inbox 会标记 `error`，前端给出一张把原文预填进摘要的空表单。
 
