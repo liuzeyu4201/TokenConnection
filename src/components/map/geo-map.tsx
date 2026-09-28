@@ -49,6 +49,8 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [transform, setTransform] = React.useState<ZoomTransform>(() => zoomIdentity);
   const [fs, setFs] = React.useState(1);
+  // Phones get a squarer canvas so China (and the bubbles) are not squeezed into a wide strip.
+  const [height, setHeight] = React.useState(HEIGHT);
   const [tier, setTier] = React.useState<"" | Tier>("");
   const [skill, setSkill] = React.useState("");
   const [openKey, setOpenKey] = React.useState<string | null>(null);
@@ -91,14 +93,15 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
           properties: {},
           geometry: {
             type: "Polygon",
-            coordinates: [[bounds[0], [bounds[1][0], bounds[0][1]], bounds[1], [bounds[0][0], bounds[1][1]], bounds[0]]],
+            // d3-geo needs clockwise exterior rings; counter-clockwise would mean "the rest of the sphere".
+            coordinates: [[bounds[0], [bounds[0][0], bounds[1][1]], bounds[1], [bounds[1][0], bounds[0][1]], bounds[0]]],
           },
         },
       ],
     };
-    proj.fitExtent([[24, 24], [WIDTH - 24, HEIGHT - 24]], box);
+    proj.fitExtent([[24, 24], [WIDTH - 24, height - 24]], box);
     return proj;
-  }, [data.clusters]);
+  }, [data.clusters, height]);
 
   const path = React.useMemo(() => geoPath(projection), [projection]);
   const countryPaths = React.useMemo(() => COUNTRIES.features.map((f, i) => ({ key: i, d: path(f) ?? "" })), [path]);
@@ -108,7 +111,10 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
     if (!svg) return;
     const observer = new ResizeObserver(([entry]) => {
       const width = entry.contentRect.width || svg.clientWidth;
-      if (width > 0) setFs(Math.min(2.4, Math.max(1, WIDTH / width)));
+      if (width > 0) {
+        setFs(Math.min(1.8, Math.max(1, WIDTH / width)));
+        setHeight(width < 640 ? Math.round(WIDTH * 1.05) : HEIGHT);
+      }
     });
     observer.observe(svg);
     return () => observer.disconnect();
@@ -188,7 +194,7 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
       <div className="overflow-hidden rounded-2xl border bg-[#eef4fb]">
         <svg
           ref={svgRef}
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          viewBox={`0 0 ${WIDTH} ${height}`}
           className="block h-auto w-full touch-none select-none"
           style={{ maxHeight: "72vh" }}
           role="img"
