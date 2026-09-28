@@ -1,0 +1,23 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: tokenconnection-db
+    restart: unless-stopped
+    # Host port defaults to 5433 because 5432 is often taken by another local Postgres.
+    # Keep DATABASE_URL in .env in sync with POSTGRES_PORT.
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: tokenconnection
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tokenconnection"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
