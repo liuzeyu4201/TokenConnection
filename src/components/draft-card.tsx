@@ -200,7 +200,7 @@ export function DraftCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">{isUpdate ? "更新已有的人" : "新增一个人"}</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">原文：{rawText}</p>
+          <p className="mt-0.5 text-xs whitespace-pre-line text-muted-foreground">原文：{rawText.replace(/^[+＋?？]/, "")}</p>
         </div>
         <div className="inline-flex rounded-lg border p-0.5 text-xs">
           <button
