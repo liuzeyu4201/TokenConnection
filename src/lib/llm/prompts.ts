@@ -26,6 +26,7 @@ export const EXTRACT_SYSTEM_PROMPT = `你是一个私人人脉库的录入助手
 - contacts：键值对，常用 key：wechat、phone、email、xiaohongshu、douyin、linkedin。句中没有联系方式则为 {}。
 - how_met：怎么认识的，一小句；没有则 null。
 - met_at：认识的日期，YYYY-MM-DD；不知道则 null。
+- intent 为 "update" 时，person 里的每个非 null 字段都会**整体覆盖**库里的旧值，所以：没有新信息的字段一律 null；summary 只在"他是谁、做什么"确实变了（换工作、换城市、身份变化）时才填，并且必须是把"已有人员列表"里该人的旧摘要和新情况合并后的完整一句话，不能只写新增的片段（错误："做量化"；正确："跑友，原来做数据分析，最近换工作转做量化，每周末一起跑西湖"）；impression 同理，填就填把列表里的旧印象和新感受合并后的完整印象（错误："其实挺幽默"；正确："严谨，说话慢但准；熟了之后发现其实挺幽默，不像看起来那么严肃"）。
 
 ## 标签 tags
 - kind "skill"：能力、职业、专长（羽毛球、律师、前端、摄影…）。
@@ -158,7 +159,7 @@ export function buildExtractPrompt(params: {
   return [
     `今天是 ${today}。`,
     "",
-    "## 已有人员列表（id | 姓名 | 摘要）",
+    "## 已有人员列表（id | 姓名 | 所在地 · 关系 · 摘要 · 印象）",
     formatPeopleIndex(peopleIndex),
     "",
     "## 示例",

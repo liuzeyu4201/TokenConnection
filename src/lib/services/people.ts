@@ -173,7 +173,11 @@ export async function countPeople(): Promise<number> {
   return row?.count ?? 0;
 }
 
-/** id + name + one-line summary for LLM disambiguation (design.md §9.1). */
+/**
+ * id + name + one-line summary for LLM disambiguation (design.md §9.1).
+ * Summary and impression are included (capped) so that an "update" draft can
+ * return a merged full sentence instead of overwriting them with a fragment.
+ */
 export async function getPeopleIndex(): Promise<PeopleIndexEntry[]> {
   const rows = await db
     .select({
@@ -182,13 +186,19 @@ export async function getPeopleIndex(): Promise<PeopleIndexEntry[]> {
       location: people.location,
       tier: people.tier,
       summary: people.summary,
+      impression: people.impression,
     })
     .from(people)
     .orderBy(desc(people.updated_at));
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    summary_line: [row.location, TIER_LABEL[row.tier], row.summary?.slice(0, 40)]
+    summary_line: [
+      row.location,
+      TIER_LABEL[row.tier],
+      row.summary?.slice(0, 80),
+      row.impression ? `印象：${row.impression.slice(0, 40)}` : null,
+    ]
       .filter(Boolean)
       .join(" · "),
   }));
