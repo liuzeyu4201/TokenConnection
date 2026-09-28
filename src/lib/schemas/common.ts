@@ -46,13 +46,14 @@ export const ContactsSchema = z.preprocess(
 
 export type Contacts = z.infer<typeof ContactsSchema>;
 
-/** Query-string integer with bounds. */
+/** Query-string integer; out-of-range values are clamped, garbage is rejected. */
 export function boundedInt(min: number, max: number, fallback: number) {
   return z.preprocess(
     (value) => {
       if (value === undefined || value === null || value === "") return fallback;
       const n = typeof value === "number" ? value : Number(value);
-      return Number.isFinite(n) ? Math.trunc(n) : value;
+      if (!Number.isFinite(n)) return value;
+      return Math.min(max, Math.max(min, Math.trunc(n)));
     },
     z.number().int().min(min).max(max),
   );

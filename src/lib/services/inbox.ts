@@ -62,6 +62,19 @@ export async function countPendingInbox(): Promise<number> {
   return rows.length;
 }
 
+/**
+ * Stored draft + candidates without calling the LLM again. Used when a
+ * pending item (e.g. recorded on the phone) is opened on the web.
+ */
+export async function describeInbox(id: string): Promise<InboxParseResult> {
+  const row = await getInbox(id);
+  const { text } = parseInputPrefix(row.raw_text);
+  const draft = row.parsed ?? fallbackDraft(text);
+  const index = await getPeopleIndex();
+  const candidates = draft.intent === "query" ? [] : await candidatesFor(draft, text, index);
+  return { inbox: row, draft, candidates, error: row.error };
+}
+
 // ---------------------------------------------------------------------------
 // Create + parse
 // ---------------------------------------------------------------------------

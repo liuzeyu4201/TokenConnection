@@ -29,6 +29,7 @@ const KEYWORD_FIELDS: Array<[keyof PersonRow, string]> = [
   ["summary", "keyword:summary"],
   ["impression", "keyword:impression"],
   ["how_met", "keyword:how_met"],
+  ["location", "keyword:location"],
 ];
 
 /** Which fields / tags matched, for the `reasons` array (design.md §8). */

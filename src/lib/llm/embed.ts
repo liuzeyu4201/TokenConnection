@@ -2,23 +2,17 @@ import { embed } from "ai";
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
-  events,
-  people,
-  peopleEmbeddings,
-  type EventRow,
-  type PersonRow,
-  type TagRow,
-} from "@/db/schema";
+import { events, people, peopleEmbeddings } from "@/db/schema";
 import { EMBEDDING_DIM } from "@/lib/env";
 
 import { mockEmbed } from "./mock";
+import { buildPersonEmbeddingText, EMBED_RECENT_EVENTS } from "./person-text";
 import { getEmbeddingModel, getEmbeddingModelName, isMockProvider } from "./provider";
 import { EmbeddingError } from "./types";
 
+export { buildPersonEmbeddingText, EMBED_RECENT_EVENTS };
+
 export const EMBED_TIMEOUT_MS = 15_000;
-/** How many recent events go into the person's vector text (design.md §7.4). */
-export const EMBED_RECENT_EVENTS = 5;
 
 /** embed(text) → number[1024] (design.md §13). */
 export async function embedText(text: string): Promise<number[]> {
@@ -46,29 +40,6 @@ export async function embedText(text: string): Promise<number[]> {
       { cause: error },
     );
   }
-}
-
-/** Template from design.md §7.4. Contacts are deliberately excluded. */
-export function buildPersonEmbeddingText(
-  person: Pick<PersonRow, "name" | "location" | "summary" | "impression">,
-  tags: Pick<TagRow, "name" | "kind">[],
-  recentEvents: Pick<EventRow, "content" | "happened_at">[],
-): string {
-  const skills = tags.filter((t) => t.kind === "skill").map((t) => t.name);
-  const circles = tags.filter((t) => t.kind === "circle").map((t) => t.name);
-  const recent = recentEvents
-    .slice(0, EMBED_RECENT_EVENTS)
-    .map((e) => `${String(e.happened_at).slice(0, 7)} ${e.content}`);
-
-  return [
-    `姓名：${person.name}`,
-    `所在地：${person.location ?? ""}`,
-    `能力：${skills.join("，")}`,
-    `圈子：${circles.join("，")}`,
-    `摘要：${person.summary ?? ""}`,
-    `印象：${person.impression ?? ""}`,
-    `最近：${recent.join("；")}`,
-  ].join("\n");
 }
 
 /**

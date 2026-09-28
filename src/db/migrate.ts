@@ -5,12 +5,11 @@ import { loadDotEnv } from "@/lib/env";
 loadDotEnv();
 
 async function main() {
-  // Import lazily so `.env` is loaded before the pool reads DATABASE_URL.
-  const { db, sql } = await import("./index");
+  const { closeDb, getDb } = await import("./index");
   console.log("Running migrations from ./drizzle ...");
-  await migrate(db, { migrationsFolder: "drizzle" });
+  await migrate(getDb(), { migrationsFolder: "drizzle" });
   console.log("Migrations applied.");
-  await sql.end();
+  await closeDb();
 }
 
 main().catch((error) => {

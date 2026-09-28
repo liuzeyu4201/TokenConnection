@@ -171,23 +171,36 @@ function validName(candidate: string | undefined | null): string | null {
   return name;
 }
 
+/** 小学 / 老师 / 阿姨 … look like nicknames but are ordinary words. */
+const NICKNAME_STOPWORDS = new Set([
+  "小学", "小时", "小心", "小区", "小组", "小孩", "小姐", "小说", "小事", "小伙", "小店", "小城",
+  "老师", "老板", "老公", "老婆", "老家", "老乡", "老友", "老人", "老同", "老朋", "老实", "老是",
+  "阿姨", "阿里",
+]);
+
 export function extractName(text: string): string | null {
-  const patterns = [
-    // 认识了一个叫陈静的姑娘 / 认识小王，羽毛球教练 / 认识老陈，做供应链
-    /认识(?:了)?(?:一个|个|一位|位|了个)?(?:叫)?([\u4e00-\u9fa5·]{2,4}?)(?=[，,。；;、：:\s]|是|做|在|的|$)/,
-    // 小王 / 老李 / 阿强 as a standalone token
-    /(?:^|[^\u4e00-\u9fa5])((?:小|老|阿)[\u4e00-\u9fa5])(?![\u4e00-\u9fa5])/,
-    // 李老师 / 王医生 / 张总 / 陈哥
-    /(?:^|[^\u4e00-\u9fa5])([\u4e00-\u9fa5]{1,2}(?:老师|医生|律师|教练|总|哥|姐|叔|博士))(?![\u4e00-\u9fa5])/,
-    // 陈静是... / 张伟，... at the very beginning
-    /^([\u4e00-\u9fa5]{2,3})(?=[，,、：:\s]|是|在|做|的)/,
-  ];
-  for (const re of patterns) {
-    const m = text.match(re);
-    const name = validName(m?.[1]);
-    if (name) return name;
+  // 认识了一个叫陈静的姑娘 / 认识小王，羽毛球教练 / 认识老陈，做供应链
+  const met = text.match(
+    /(?:认识|见到|遇到|碰到)(?:了)?(?:一个|个|一位|位|了个)?(?:叫)?([\u4e00-\u9fa5·]{2,4}?)(?=[，,。；;、：:\s]|是|做|在|的|$)/,
+  );
+  const metName = validName(met?.[1]);
+  if (metName && !NICKNAME_STOPWORDS.has(metName)) return metName;
+
+  // 小王 / 老李 / 阿强 anywhere in the sentence, skipping ordinary words.
+  for (const m of text.matchAll(/((?:小|老|阿)[\u4e00-\u9fa5])(?![\u4e00-\u9fa5]{2,})/g)) {
+    if (!NICKNAME_STOPWORDS.has(m[1])) return m[1];
   }
-  return null;
+
+  // 李老师 / 王医生 / 张总 / 陈哥
+  const titled = text.match(
+    /(?:^|[^\u4e00-\u9fa5])([\u4e00-\u9fa5]{1,2}(?:老师|医生|律师|教练|总|哥|姐|叔|博士))(?![\u4e00-\u9fa5])/,
+  );
+  const titledName = validName(titled?.[1]);
+  if (titledName) return titledName;
+
+  // 陈静是... / 张伟，... at the very beginning
+  const leading = text.match(/^([\u4e00-\u9fa5]{2,3})(?=[，,、：:\s]|是|在|做|的)/);
+  return validName(leading?.[1]);
 }
 
 export function extractTags(text: string): DraftTag[] {
@@ -424,12 +437,15 @@ const SYNONYM_GROUPS: Record<string, string[]> = {
 };
 
 // Concept (synonym-group) tokens dominate so paraphrases score close to
-// literal matches; literal terms and bigrams only break ties.
+// literal matches; ungrouped skill terms, cities, Latin words and character
+// bigrams only add texture / break ties.
 const WEIGHT_SYNONYM = 1.0;
 const WEIGHT_TERM = 0.25;
 const WEIGHT_CITY = 0.75;
 const WEIGHT_LATIN_WORD = 0.5;
-const WEIGHT_BIGRAM = 0.1;
+const WEIGHT_BIGRAM = 0.05;
+
+const GROUPED_TERMS = new Set(Object.values(SYNONYM_GROUPS).flat());
 
 /** FNV-1a 32-bit hash. */
 function fnv1a(input: string): number {
@@ -450,15 +466,11 @@ export function mockTokenize(text: string): Map<string, number> {
   const lower = text.toLowerCase();
 
   for (const [group, terms] of Object.entries(SYNONYM_GROUPS)) {
-    for (const term of terms) {
-      if (lower.includes(term)) {
-        add(`syn:${group}`, WEIGHT_SYNONYM);
-        add(`w:${term}`, WEIGHT_TERM);
-      }
-    }
+    if (terms.some((term) => lower.includes(term))) add(`syn:${group}`, WEIGHT_SYNONYM);
   }
   for (const term of SKILL_TERMS) {
-    if (lower.includes(term.toLowerCase())) add(`w:${term.toLowerCase()}`, WEIGHT_TERM);
+    const t = term.toLowerCase();
+    if (!GROUPED_TERMS.has(t) && lower.includes(t)) add(`w:${t}`, WEIGHT_TERM);
   }
   for (const city of CITIES) {
     if (text.includes(city)) add(`city:${city}`, WEIGHT_CITY);

@@ -53,6 +53,9 @@ export function keywordFilters(q: string): SQL[] {
       ilike(people.summary, pattern),
       ilike(people.impression, pattern),
       ilike(people.how_met, pattern),
+      // location is not in design.md §9.2's list but "深圳" typed into the
+      // universal input clearly means the city too.
+      ilike(people.location, pattern),
       hasTagNamed(pattern, false),
     ) as SQL;
   });
