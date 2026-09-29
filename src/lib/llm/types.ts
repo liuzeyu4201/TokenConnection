@@ -1,4 +1,4 @@
-import type { InboxIntent } from "@/lib/schemas/enums";
+import type { InboxIntent, TagKind } from "@/lib/schemas/enums";
 
 /** One line per person handed to the LLM for disambiguation (design.md §9.1). */
 export type PeopleIndexEntry = {
@@ -15,6 +15,8 @@ export type ExtractOptions = {
   targetPersonId?: string;
   /** YYYY-MM-DD used to resolve relative dates. Defaults to today. */
   today?: string;
+  /** Circles and tags defined in settings; the draft may only use these names. */
+  tagVocabulary?: Array<{ name: string; kind: TagKind }>;
 };
 
 export class ExtractionError extends Error {

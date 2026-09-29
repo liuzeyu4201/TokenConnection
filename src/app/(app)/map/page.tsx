@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "cn";
 
 import { GeoMap } from "@/components/map/geo-map";
-import { RadialMap } from "@/components/map/radial-map";
+import { NetworkMap } from "@/components/map/network-map";
 import { TierBadge } from "@/components/tier-badge";
 import { getGeoMapData, getRadialMapData } from "@/lib/services/map";
 
@@ -20,12 +20,12 @@ export default async function MapPage({ searchParams }: PageProps<"/map">) {
         <div>
           <h1 className="text-xl font-semibold">地图</h1>
           <p className="text-sm text-muted-foreground">
-            {view === "radial" ? "圆心是我，五个环从内到外由近及远，扇区按主圈子划分。" : "按所在地聚合，气泡越大人越多。"}
+            {view === "radial" ? "同一圈子的人用虚线相连。" : "按所在地聚合，气泡越大人越多。"}
           </p>
         </div>
         <div className="inline-flex rounded-lg border p-0.5 text-sm">
           <Link href="/map" className={cn("rounded-md px-3 py-1.5 text-muted-foreground", view === "radial" && "bg-primary text-primary-foreground")}>
-            同心圆
+            关系网
           </Link>
           <Link href="/map?view=geo" className={cn("rounded-md px-3 py-1.5 text-muted-foreground", view === "geo" && "bg-primary text-primary-foreground")}>
             地理
@@ -33,7 +33,7 @@ export default async function MapPage({ searchParams }: PageProps<"/map">) {
         </div>
       </div>
 
-      {view === "radial" ? <RadialMap data={await getRadialMapData()} /> : <GeoSection />}
+      {view === "radial" ? <NetworkMap data={await getRadialMapData()} /> : <GeoSection />}
     </div>
   );
 }

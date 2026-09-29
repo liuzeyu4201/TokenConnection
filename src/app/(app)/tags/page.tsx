@@ -12,7 +12,7 @@ export default async function TagsPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">圈子和标签</h1>
-        <p className="text-sm text-muted-foreground">圈子一个人只有一个，用来在地图上分扇区。标签可以有很多，用来查找。</p>
+        <p className="text-sm text-muted-foreground">圈子一个人只有一个，用来在地图上分扇区。标签可以有很多，用来查找。所有圈子和标签都在这里新建、改名、删除，给人分配时只能从这里已有的里选。</p>
       </div>
       <TagsManager tags={tags} />
     </div>

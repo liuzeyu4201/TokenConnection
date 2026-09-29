@@ -1,3 +1,5 @@
+import type { TagKind } from "@/lib/schemas/enums";
+
 import type { PeopleIndexEntry } from "./types";
 
 /**
@@ -29,6 +31,7 @@ export const EXTRACT_SYSTEM_PROMPT = `你是一个私人人脉库的录入助手
 - intent 为 "update" 时，person 里的每个非 null 字段都会**整体覆盖**库里的旧值，所以：没有新信息的字段一律 null；summary 只在"他是谁、做什么"确实变了（换工作、换城市、身份变化）时才填，并且必须是把"已有人员列表"里该人的旧摘要和新情况合并后的完整一句话，不能只写新增的片段（错误："做量化"；正确："跑友，原来做数据分析，最近换工作转做量化，每周末一起跑西湖"）；impression 同理，填就填把列表里的旧印象和新感受合并后的完整印象（错误："其实挺幽默"；正确："严谨，说话慢但准；熟了之后发现其实挺幽默，不像看起来那么严肃"）。
 
 ## 标签 tags
+圈子和标签只能从"已有圈子和标签"列表里选，名字必须和列表完全一致；列表里没有合适的就不要填，不要自创新名字。
 一个人只有一个圈子，用来在地图上分扇区。
 - kind "circle"：最多一个。他主要属于哪一圈（球友、前同事、大学同学、老乡…）。没有就不要填。
 - kind "skill"：用来查找的能力、职业、专长（羽毛球、律师、前端、摄影…）。可以有多个。
@@ -133,14 +136,26 @@ export function formatPeopleIndex(index: PeopleIndexEntry[]): string {
   return index.map((p) => `- ${p.id} | ${p.name} | ${p.summary_line}`).join("\n");
 }
 
+export function formatTagVocabulary(vocabulary: Array<{ name: string; kind: TagKind }>): string {
+  const circles = vocabulary.filter((t) => t.kind === "circle").map((t) => t.name);
+  const skills = vocabulary.filter((t) => t.kind === "skill").map((t) => t.name);
+  const others = vocabulary.filter((t) => t.kind === "other").map((t) => t.name);
+  return [
+    `- circle：${circles.join("、") || "（无）"}`,
+    `- skill：${skills.join("、") || "（无）"}`,
+    `- other：${others.join("、") || "（无）"}`,
+  ].join("\n");
+}
+
 export function buildExtractPrompt(params: {
   rawText: string;
   peopleIndex: PeopleIndexEntry[];
   today: string;
   forcedIntent?: "add" | "update" | "query";
   targetPersonId?: string;
+  tagVocabulary?: Array<{ name: string; kind: TagKind }>;
 }): string {
-  const { rawText, peopleIndex, today, forcedIntent, targetPersonId } = params;
+  const { rawText, peopleIndex, today, forcedIntent, targetPersonId, tagVocabulary = [] } = params;
   const examplePersonId = peopleIndex[0]?.id ?? "00000000-0000-4000-8000-000000000000";
   const examples = EXTRACT_EXAMPLES.map((ex, i) => {
     const output = ex.output
@@ -163,7 +178,10 @@ export function buildExtractPrompt(params: {
     "## 已有人员列表（id | 姓名 | 所在地 · 关系 · 摘要 · 印象）",
     formatPeopleIndex(peopleIndex),
     "",
-    "## 示例",
+    "## 已有圈子和标签（只能从这里选）",
+    formatTagVocabulary(tagVocabulary),
+    "",
+    "## 示例（示例里的标签名只是格式演示，实际以上面的列表为准）",
     examples,
     "",
     constraints.length > 0 ? `## 额外约束\n${constraints.join("\n")}\n` : "",

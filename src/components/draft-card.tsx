@@ -4,7 +4,7 @@ import * as React from "react";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 
 import { NativeSelect } from "@/components/native-select";
-import { TagChip } from "@/components/tag-chip";
+import { CirclePicker, LabelsPicker, useTagVocabulary } from "@/components/tag-combobox";
 import { TierBadge } from "@/components/tier-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,16 +24,10 @@ import type { ApiCandidate, ApiInboxApplyResult, ApiInboxParseResult } from "@/l
 
 export const CONFIDENCE_THRESHOLD = 0.7;
 
-function splitDraftTags(source: Draft): { circle: string; draft: Draft } {
-  const circles = source.tags.filter((tag) => tag.kind === "circle");
-  const rest = source.tags.filter((tag) => tag.kind !== "circle");
-  const [keep, ...extra] = circles;
+function splitDraftTags(source: Draft): { circle: DraftTag | null; draft: Draft } {
   return {
-    circle: keep?.name ?? "",
-    draft: {
-      ...source,
-      tags: [...rest, ...extra.map((tag) => ({ ...tag, kind: "other" as const }))],
-    },
+    circle: source.tags.find((tag) => tag.kind === "circle") ?? null,
+    draft: { ...source, tags: source.tags.filter((tag) => tag.kind !== "circle") },
   };
 }
 
@@ -97,9 +91,9 @@ export function DraftCard({
 }: Props) {
   const opened = splitDraftTags(initialDraft);
   const [draft, setDraft] = React.useState<Draft>(opened.draft);
-  const [circle, setCircle] = React.useState(opened.circle);
+  const [circle, setCircle] = React.useState<DraftTag | null>(opened.circle);
   const [contacts, setContacts] = React.useState<ContactRow[]>(() => toRows(initialDraft.person.contacts ?? {}));
-  const [newTag, setNewTag] = React.useState("");
+  const vocabulary = useTagVocabulary();
   const [busy, setBusy] = React.useState<"apply" | "discard" | "reparse" | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
 
@@ -138,23 +132,13 @@ export function DraftCard({
     }));
   };
 
-  const addTag = () => {
-    const name = newTag.trim();
-    if (!name) return;
-    setDraft((d) => (d.tags.some((t) => t.name === name) ? d : { ...d, tags: [...d.tags, { name, kind: "skill" }] }));
-    setNewTag("");
-  };
-
   const updateEvent = (index: number, patch: Partial<DraftEvent>) =>
     setDraft((d) => ({ ...d, events: d.events.map((e, i) => (i === index ? { ...e, ...patch } : e)) }));
 
   const buildDraft = (): Draft => ({
     ...draft,
     person: { ...draft.person, contacts: toRecord(contacts) },
-    tags: [
-      ...draft.tags.filter((t) => t.kind !== "circle" && t.name.trim()),
-      ...(circle.trim() ? [{ name: circle.trim(), kind: "circle" as const }] : []),
-    ],
+    tags: [...draft.tags.filter((t) => t.kind !== "circle"), ...(circle ? [{ name: circle.name, kind: "circle" as const }] : [])],
     events: draft.events.filter((e) => e.content.trim()),
   });
 
@@ -384,29 +368,12 @@ export function DraftCard({
 
       <div className="space-y-2">
         <SectionTitle>圈子和标签{isUpdate ? "（标签会追加）" : ""}</SectionTitle>
-        <Input value={circle} onChange={(e) => setCircle(e.target.value)} placeholder="圈子，只填一个，例如 球友" />
-        <div className="flex flex-wrap gap-1.5">
-          {draft.tags.filter((tag) => tag.kind !== "circle").map((tag: DraftTag, i) => (
-            <TagChip key={`${tag.kind}-${tag.name}-${i}`} name={tag.name} kind={tag.kind} onRemove={() => setDraft((d) => ({ ...d, tags: d.tags.filter((item) => item !== tag) }))} />
-          ))}
-          {draft.tags.every((tag) => tag.kind === "circle") ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            value={newTag}
-            placeholder="标签，例如 羽毛球"
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-          />
-          <Button type="button" variant="outline" size="sm" onClick={addTag}>
-            添加
-          </Button>
-        </div>
+        <CirclePicker circles={vocabulary.filter((t) => t.kind === "circle")} value={circle} onChange={setCircle} />
+        <LabelsPicker
+          options={vocabulary.filter((t) => t.kind !== "circle")}
+          value={draft.tags}
+          onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
+        />
       </div>
 
       <div className="space-y-2">

@@ -3,40 +3,23 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CirclePicker, LabelsPicker, type TagOption } from "@/components/tag-combobox";
 import { apiFetch, errorMessage } from "@/lib/api-client";
 import { resolvePrimaryCircle } from "@/lib/map/primary-circle";
 import type { ApiTag } from "@/lib/types";
 
-/**
- * One circle per person: the sector on the radial map. Other labels are tags.
- */
-export function CircleField({
-  personId,
-  tags,
-  primaryCircleTagId,
-}: {
-  personId: string;
-  tags: ApiTag[];
-  primaryCircleTagId: string | null;
-}) {
+function usePersonTagsSaver(personId: string) {
   const router = useRouter();
-  const current = resolvePrimaryCircle(primaryCircleTagId, tags.filter((t) => t.kind === "circle"));
-  const [name, setName] = React.useState(current?.name ?? "");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const save = async () => {
-    const next = name.trim();
-    if (next === (current?.name ?? "")) return;
+  const save = async (tags: TagOption[]) => {
     setBusy(true);
     setError(null);
-    const labels = tags.filter((t) => t.kind !== "circle").map((t) => ({ name: t.name, kind: t.kind }));
     try {
       await apiFetch(`/api/v1/people/${personId}`, {
         method: "PATCH",
-        body: { tags: next ? [...labels, { name: next, kind: "circle" }] : labels },
+        body: { tags: tags.map((t) => ({ name: t.name, kind: t.kind })) },
       });
       router.refresh();
     } catch (err) {
@@ -46,27 +29,77 @@ export function CircleField({
     }
   };
 
+  return { busy, error, save };
+}
+
+/**
+ * One circle per person: the sector on the radial map. Picked from the
+ * circles defined in settings; never created here.
+ */
+export function CircleField({
+  personId,
+  tags,
+  primaryCircleTagId,
+  circles,
+}: {
+  personId: string;
+  tags: ApiTag[];
+  primaryCircleTagId: string | null;
+  circles: ApiTag[];
+}) {
+  const current = resolvePrimaryCircle(primaryCircleTagId, tags.filter((t) => t.kind === "circle"));
+  const { busy, error, save } = usePersonTagsSaver(personId);
+  const labels = tags.filter((t) => t.kind !== "circle");
+
   return (
     <div className="space-y-1">
-      <form
-        className="flex items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <span className="w-8 shrink-0 text-xs text-muted-foreground">圈子</span>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="一个，例如 球友 / 大学同学"
-          className="h-8"
+      <div className="flex items-start gap-2">
+        <span className="w-8 shrink-0 pt-1.5 text-xs text-muted-foreground">圈子</span>
+        <CirclePicker
+          circles={circles}
+          value={current}
+          disabled={busy}
+          onChange={(circle) => {
+            if (circle?.id === current?.id) return;
+            void save(circle ? [...labels, circle] : labels);
+          }}
         />
-        <Button type="submit" size="sm" variant="outline" disabled={busy || name.trim() === (current?.name ?? "")}>
-          {busy ? "保存中…" : "保存"}
-        </Button>
-      </form>
+      </div>
       <p className="pl-10 text-[11px] text-muted-foreground">一个人一个圈子，用来在地图上分扇区。</p>
+      {error ? <p className="pl-10 text-xs text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
+/** Searchable tags, picked from the tags defined in settings. */
+export function LabelsField({
+  personId,
+  tags,
+  primaryCircleTagId,
+  options,
+}: {
+  personId: string;
+  tags: ApiTag[];
+  primaryCircleTagId: string | null;
+  options: ApiTag[];
+}) {
+  const circle = resolvePrimaryCircle(primaryCircleTagId, tags.filter((t) => t.kind === "circle"));
+  const { busy, error, save } = usePersonTagsSaver(personId);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-start gap-2">
+        <span className="w-8 shrink-0 pt-1 text-xs text-muted-foreground">标签</span>
+        <div className="min-w-0 flex-1">
+          <LabelsPicker
+            options={options}
+            value={tags.filter((t) => t.kind !== "circle")}
+            disabled={busy}
+            chipHref={(t) => `/people?tag=${encodeURIComponent(t.name)}`}
+            onChange={(labels) => void save(circle ? [...labels, circle] : labels)}
+          />
+        </div>
+      </div>
       {error ? <p className="pl-10 text-xs text-destructive">{error}</p> : null}
     </div>
   );

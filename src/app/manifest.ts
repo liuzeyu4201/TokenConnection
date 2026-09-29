@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "人脉 · TokenConnection",
-    short_name: "人脉",
+    name: "朋友圈 · TokenConnection",
+    short_name: "朋友圈",
     description: "只给自己用的人脉库：一句话记人，一句话找人。",
     start_url: "/",
     display: "standalone",

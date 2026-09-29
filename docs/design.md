@@ -447,7 +447,7 @@ EMBEDDING_DIM=1024
 > 阶段 2 实现说明：
 > - 不接外部 geocoding（§19 问题 5 已定）。用离线城市表 `src/lib/geo/cities.ts`（GeoNames cities15000，CC BY 4.0；覆盖全部省级行政区、全部地级市与自治州/盟、大县级市、港澳台主要城市、约 100 个世界主要城市，中英文名可匹配）和归一化匹配 `geocode()`（去 市/省/区/县 等后缀、去掉省名前缀、最长前缀匹配；匹配不到返回 null 不猜）。
 > - `people` 新增 `lat`、`lng`（可空）与 `geo_manual`（默认 false）。新建/更新时 location 变化且非手动即自动 geocode；手动填过坐标的不被覆写，编辑表单可"恢复自动"。`pnpm db:geocode` 回填存量数据，seed 也产生坐标。
-> - 底图为 `world-atlas` 110m 国界（TopoJSON，随包离线），d3-geo Mercator，初始视口包住全部已定位的人（无人时默认中国）；同城按 0.01° 网格聚合成气泡；页面下方列出"未定位"（有 location 但匹配不到）的人并给修复入口；没填 location 的人只计数。
+> - 底图只画中国省级边界（`src/lib/geo/china-provinces.json`，阿里云 DataV geoatlas `100000_full`，随包离线），d3-geo Mercator，视口固定包住全国；同城按 0.01° 网格聚合成气泡；页面下方列出"未定位"（有 location 但匹配不到）的人并给修复入口；没填 location 的人只计数。
 > - 扩展点：`geocode()` 返回 null 时可在 `src/lib/geo/geocode.ts` 的同一入口串一个在线 geocoder（高德 / 腾讯位置服务），配置了 key 才启用；`geo_manual` 语义不变。本阶段只注明，不实现。
 
 ### 14.3 提醒

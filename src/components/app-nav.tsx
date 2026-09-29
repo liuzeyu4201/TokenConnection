@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Inbox, Radar, Tags, Users } from "lucide-react";
+import { Home, Radar, Settings, Users } from "lucide-react";
 import { cn } from "cn";
 
 function BrandMark({ className }: { className?: string }) {
@@ -29,11 +29,13 @@ const ITEMS: NavItem[] = [
   { href: "/", label: "首页", icon: Home, exact: true },
   { href: "/people", label: "人脉", icon: Users },
   { href: "/map", label: "地图", icon: Radar },
-  { href: "/tags", label: "标签", icon: Tags },
-  { href: "/inbox", label: "收件箱", icon: Inbox },
+  { href: "/settings", label: "设置", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
+  if (href === "/settings") {
+    return pathname === "/settings" || pathname.startsWith("/tags") || pathname.startsWith("/inbox");
+  }
   return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -43,10 +45,10 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
   return (
     <>
       <header className="sticky top-0 z-40 hidden border-b bg-background/90 backdrop-blur md:block">
-        <div className="mx-auto flex h-12 max-w-3xl items-center gap-6 px-4">
+        <div className="mx-auto flex h-12 max-w-6xl items-center gap-6 px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <BrandMark className="size-5" />
-            人脉
+            朋友圈
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             {ITEMS.map(({ href, label, exact }) => (
@@ -59,7 +61,7 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
                 )}
               >
                 {label}
-                {href === "/inbox" && pendingCount > 0 ? (
+                {href === "/settings" && pendingCount > 0 ? (
                   <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{pendingCount}</span>
                 ) : null}
               </Link>
@@ -69,7 +71,7 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
       </header>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="mx-auto grid max-w-3xl grid-cols-5">
+        <ul className="mx-auto grid max-w-3xl grid-cols-4">
           {ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const active = isActive(pathname, href, exact);
             return (
@@ -83,7 +85,7 @@ export function AppNav({ pendingCount }: { pendingCount: number }) {
                 >
                   <Icon className={cn("size-5", active && "stroke-[2.5]")} />
                   {label}
-                  {href === "/inbox" && pendingCount > 0 ? (
+                  {href === "/settings" && pendingCount > 0 ? (
                     <span className="absolute top-1 right-[calc(50%-1.1rem)] min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground">
                       {pendingCount}
                     </span>

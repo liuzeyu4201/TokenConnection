@@ -91,10 +91,16 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      {tags.length === 0 ? <EmptyState>还没有圈子或标签。记人时会自动补上。</EmptyState> : null}
+      {tags.length === 0 ? <EmptyState>还没有圈子或标签。先在上面添加，之后给人分圈子、打标签时只能从这里选。</EmptyState> : null}
 
       {groups.map(({ title, hint, items }) =>
-        items.length === 0 ? null : (
+        items.length === 0 ? (
+          tags.length === 0 ? null : (
+            <p key={title} className="text-sm text-muted-foreground">
+              还没有{title}，在上面添加。
+            </p>
+          )
+        ) : (
           <section key={title} className="space-y-2">
             <h2 className="text-sm font-semibold">
               {title} <span className="font-normal text-muted-foreground">{items.length}</span>

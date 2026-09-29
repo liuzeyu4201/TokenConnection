@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { events, people, peopleTags, tags, type EventRow, type PersonRow, type TagRow } from "@/db/schema";
@@ -130,6 +130,31 @@ export async function listPeople(
   return { items, next_cursor: hasMore ? encodeCursor(page[page.length - 1]) : null };
 }
 
+/** Numbered pages over the same ordering as `listPeople`; `page` is clamped to the last page. */
+export async function listPeoplePage(
+  query: Pick<PeopleQuery, "tier" | "tag" | "location" | "q">,
+  page: number,
+  pageSize: number,
+): Promise<{ items: PersonWithTags[]; total: number; page: number; pageCount: number }> {
+  const conditions: SQL[] = [...structuredFilters(query), ...keywordFilters(query.q ?? "")];
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [countRow] = await db.select({ count: sql<number>`count(*)::int` }).from(people).where(where);
+  const total = countRow?.count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const current = Math.min(Math.max(1, page), pageCount);
+
+  const rows = await db
+    .select()
+    .from(people)
+    .where(where)
+    .orderBy(desc(people.created_at), desc(people.id))
+    .limit(pageSize)
+    .offset((current - 1) * pageSize);
+
+  return { items: await attachTags(rows), total, page: current, pageCount };
+}
+
 export async function getPersonRow(id: string, client: DbClient = db): Promise<PersonRow> {
   const [row] = await client.select().from(people).where(eq(people.id, id)).limit(1);
   if (!row) throw notFound("这个人不存在");
@@ -155,16 +180,6 @@ export async function getPersonDetail(id: string): Promise<PersonDetail> {
 
 export async function listRecentlyAdded(limit = 8): Promise<PersonWithTags[]> {
   const rows = await db.select().from(people).orderBy(desc(people.created_at)).limit(limit);
-  return attachTags(rows);
-}
-
-export async function listRecentlyContacted(limit = 8): Promise<PersonWithTags[]> {
-  const rows = await db
-    .select()
-    .from(people)
-    .where(isNotNull(people.last_contact_at))
-    .orderBy(desc(people.last_contact_at))
-    .limit(limit);
   return attachTags(rows);
 }
 
@@ -285,7 +300,7 @@ export async function createPerson(input: PersonCreateInput): Promise<PersonDeta
       })
       .returning({ id: people.id });
     if (tagInputs && tagInputs.length > 0) {
-      await replacePersonTags(row.id, tagInputs, tx);
+      await replacePersonTags(row.id, tagInputs, tx, { strict: true });
     }
     return row.id;
   });
@@ -317,7 +332,7 @@ export async function updatePerson(id: string, input: PersonUpdateInput): Promis
     }
     await tx.update(people).set(patch).where(eq(people.id, id));
     if (tagInputs !== undefined) {
-      await replacePersonTags(id, tagInputs, tx);
+      await replacePersonTags(id, tagInputs, tx, { strict: true });
     }
     if (fields.primary_circle_tag_id !== undefined) {
       if (fields.primary_circle_tag_id) await assertPrimaryCircle(id, fields.primary_circle_tag_id, tx);
@@ -336,7 +351,7 @@ export async function deletePerson(id: string): Promise<void> {
 export async function setPersonTags(id: string, tagInputs: TagInput[]): Promise<PersonWithTags> {
   await db.transaction(async (tx) => {
     await getPersonRow(id, tx);
-    await replacePersonTags(id, tagInputs, tx);
+    await replacePersonTags(id, tagInputs, tx, { strict: true });
   });
   await refreshPersonEmbedding(id);
   return getPersonWithTags(id);

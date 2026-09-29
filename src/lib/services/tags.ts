@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { people, peopleTags, tags, type TagRow } from "@/db/schema";
-import { conflict, notFound } from "@/lib/api/errors";
+import { badRequest, conflict, notFound } from "@/lib/api/errors";
 import type { TagKind } from "@/lib/schemas/enums";
 import type { TagInput } from "@/lib/schemas/person";
 import type { TagCreateInput, TagUpdateInput } from "@/lib/schemas/tag";
@@ -74,19 +74,6 @@ export async function deleteTag(id: string): Promise<void> {
   if (deleted.length === 0) throw notFound("标签不存在");
 }
 
-/**
- * A person has one circle (the map sector). Extra circle names become ordinary
- * tags so they stay searchable.
- */
-export function foldTagInputs(inputs: TagInput[]): TagInput[] {
-  const normalized = normalizeTagInputs(inputs);
-  const circles = normalized.filter((t) => t.kind === "circle");
-  if (circles.length <= 1) return normalized;
-  const [keep, ...extra] = circles;
-  const rest = normalized.filter((t) => t.kind !== "circle");
-  return normalizeTagInputs([keep, ...rest, ...extra.map((t) => ({ name: t.name, kind: "other" as const }))]);
-}
-
 /** Deduplicate by (name, kind); case-sensitive on purpose (tags are short). */
 export function normalizeTagInputs(inputs: TagInput[]): TagInput[] {
   const seen = new Set<string>();
@@ -102,7 +89,67 @@ export function normalizeTagInputs(inputs: TagInput[]): TagInput[] {
   return out;
 }
 
-/** Insert missing tags and return rows for every requested (name, kind). */
+/** Case- and whitespace-insensitive key; Chinese names compare exactly. */
+export function tagNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Map requested (name, kind) pairs onto the existing vocabulary. Never inserts.
+ * A circle request only matches a circle; other requests prefer the same kind,
+ * then any non-circle kind, then a circle of that name (the LLM often mislabels).
+ * Unknown names are dropped, or rejected when `strict` (manual edits).
+ */
+export async function matchExistingTags(
+  inputs: TagInput[],
+  client: DbClient = db,
+  options: { strict?: boolean } = {},
+): Promise<TagRow[]> {
+  const wanted = normalizeTagInputs(inputs);
+  if (wanted.length === 0) return [];
+  const vocabulary = await client.select().from(tags);
+  const byKey = new Map<string, TagRow[]>();
+  for (const row of vocabulary) {
+    const key = tagNameKey(row.name);
+    byKey.set(key, [...(byKey.get(key) ?? []), row]);
+  }
+
+  const out: TagRow[] = [];
+  const missing: TagInput[] = [];
+  for (const input of wanted) {
+    const same = byKey.get(tagNameKey(input.name)) ?? [];
+    const match =
+      input.kind === "circle"
+        ? same.find((t) => t.kind === "circle")
+        : (same.find((t) => t.kind === input.kind) ??
+          same.find((t) => t.kind !== "circle") ??
+          same.find((t) => t.kind === "circle"));
+    if (!match) missing.push(input);
+    else if (!out.some((t) => t.id === match.id)) out.push(match);
+  }
+  if (options.strict && missing.length > 0) {
+    const names = missing.map((t) => `「${t.name}」`).join("、");
+    const what = missing.every((t) => t.kind === "circle") ? "圈子" : "标签";
+    throw badRequest(`${what}${names}不存在，请先在 设置 › 圈子和标签 里添加`, "unknown_tag");
+  }
+  return out;
+}
+
+/** Existing (name, kind) pairs for draft tags; unknown ones are dropped, at most one circle. */
+export async function canonicalizeTagInputs(inputs: TagInput[], client: DbClient = db): Promise<TagInput[]> {
+  return keepOneCircle(await matchExistingTags(inputs, client)).map((t) => ({ name: t.name, kind: t.kind }));
+}
+
+function keepOneCircle(rows: TagRow[]): TagRow[] {
+  const circle = rows.find((t) => t.kind === "circle");
+  return rows.filter((t) => t.kind !== "circle" || t === circle);
+}
+
+/**
+ * Insert missing tags and return rows for every requested (name, kind).
+ * Only for defining the vocabulary (seed, maintenance); assigning tags to a
+ * person goes through `matchExistingTags`.
+ */
 export async function upsertTags(inputs: TagInput[], client: DbClient = db): Promise<TagRow[]> {
   const wanted = normalizeTagInputs(inputs);
   if (wanted.length === 0) return [];
@@ -151,13 +198,21 @@ export async function getTagsForPeople(
   return result;
 }
 
-/** Replace the whole tag set of one person. The single circle, if any, becomes primary. */
+/**
+ * Replace the whole tag set of one person with existing tags. The single
+ * circle, if any, becomes primary.
+ */
 export async function replacePersonTags(
   personId: string,
   inputs: TagInput[],
   client: DbClient = db,
+  options: { strict?: boolean } = {},
 ): Promise<TagRow[]> {
-  const rows = await upsertTags(foldTagInputs(inputs), client);
+  const matched = await matchExistingTags(inputs, client, options);
+  if (options.strict && matched.filter((t) => t.kind === "circle").length > 1) {
+    throw badRequest("一个人只能有一个圈子", "too_many_circles");
+  }
+  const rows = keepOneCircle(matched);
   await client.delete(peopleTags).where(eq(peopleTags.person_id, personId));
   if (rows.length > 0) {
     await client
@@ -170,7 +225,10 @@ export async function replacePersonTags(
   return rows;
 }
 
-/** Add tags to a person without removing existing ones. A second circle is saved as a tag. */
+/**
+ * Add existing tags to a person without removing current ones. Unknown names
+ * are dropped; a circle is ignored when the person already has one.
+ */
 export async function addPersonTags(
   personId: string,
   inputs: TagInput[],
@@ -178,9 +236,8 @@ export async function addPersonTags(
 ): Promise<void> {
   const existing = await getTagsForPeople([personId], client);
   const hasCircle = (existing.get(personId) ?? []).some((t) => t.kind === "circle");
-  let folded = foldTagInputs(inputs);
-  if (hasCircle) folded = normalizeTagInputs(folded.map((t) => (t.kind === "circle" ? { ...t, kind: "other" as const } : t)));
-  const rows = await upsertTags(folded, client);
+  const matched = keepOneCircle(await matchExistingTags(inputs, client));
+  const rows = hasCircle ? matched.filter((t) => t.kind !== "circle") : matched;
   if (rows.length === 0) return;
   await client
     .insert(peopleTags)

@@ -3,13 +3,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "人脉", template: "%s · 人脉" },
+  title: { default: "朋友圈", template: "%s · 朋友圈" },
   description: "只给自己用的人脉库：一句话记人，一句话找人。",
-  applicationName: "人脉",
+  applicationName: "朋友圈",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "人脉",
+    title: "朋友圈",
     statusBarStyle: "default",
   },
   icons: {

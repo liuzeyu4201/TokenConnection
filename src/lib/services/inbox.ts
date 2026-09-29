@@ -23,7 +23,7 @@ import {
   type PersonDetail,
 } from "./people";
 import { searchPeople, type SearchResponse } from "./search";
-import { addPersonTags, replacePersonTags } from "./tags";
+import { addPersonTags, canonicalizeTagInputs, listTags, replacePersonTags } from "./tags";
 
 /** Below this confidence the UI shows the candidate picker (design.md §9.1). */
 export const TARGET_CONFIDENCE_THRESHOLD = 0.7;
@@ -78,7 +78,8 @@ export async function countPendingInbox(): Promise<number> {
 export async function describeInbox(id: string): Promise<InboxParseResult> {
   const row = await getInbox(id);
   const { text } = parseInputPrefix(row.raw_text);
-  const draft = row.parsed ?? fallbackDraft(text);
+  const stored = row.parsed ?? fallbackDraft(text);
+  const draft = { ...stored, tags: await canonicalizeTagInputs(stored.tags) };
   const index = await getPeopleIndex();
   const candidates = draft.intent === "query" ? [] : await candidatesFor(draft, text, index);
   return { inbox: row, draft, candidates, error: row.error };
@@ -158,9 +159,12 @@ async function candidatesFor(
  */
 async function parseInboxRow(row: InboxRow, personHint?: string): Promise<InboxParseResult> {
   const { text, forcedIntent } = parseInputPrefix(row.raw_text);
-  const index = await getPeopleIndex();
+  const [index, vocabulary] = await Promise.all([getPeopleIndex(), listTags()]);
 
-  const options: ExtractOptions = { forcedIntent };
+  const options: ExtractOptions = {
+    forcedIntent,
+    tagVocabulary: vocabulary.map((t) => ({ name: t.name, kind: t.kind })),
+  };
   if (personHint && index.some((p) => p.id === personHint)) {
     options.forcedIntent = "update";
     options.targetPersonId = personHint;
@@ -177,6 +181,7 @@ async function parseInboxRow(row: InboxRow, personHint?: string): Promise<InboxP
       draft = { ...draft, intent: "update", target_person_id: options.targetPersonId, target_confidence: 1 };
     }
   }
+  if (draft.intent !== "query") draft = { ...draft, tags: await canonicalizeTagInputs(draft.tags) };
 
   if (draft.intent === "query") {
     const results = await searchPeople({ q: text, limit: 20 });

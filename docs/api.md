@@ -37,7 +37,7 @@
 
 提醒阈值在 `src/lib/reminders/thresholds.ts`：Best Bros 30 天、Close friends 60 天、Friends 120 天。另外两级不提醒。基准时间是 `last_contact_at`，没有则用 `met_at`，再没有则用 `created_at`。
 
-所在地用 `src/lib/geo/cities.ts` 的离线城市表（GeoNames cities15000，CC BY 4.0）匹配。匹配不到的人出现在地理地图的「未定位」里。底图是随包的 `world-atlas` 110m 国界。
+所在地用 `src/lib/geo/cities.ts` 的离线城市表（GeoNames cities15000，CC BY 4.0）匹配。匹配不到的人出现在地理地图的「未定位」里。底图是随包的中国省级边界 `src/lib/geo/china-provinces.json`。
 
 ## 例子
 

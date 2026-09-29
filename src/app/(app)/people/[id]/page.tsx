@@ -5,15 +5,15 @@ import { ChevronLeft, MapPin } from "lucide-react";
 
 import { AppendInput } from "@/components/append-input";
 import { PersonEditForm } from "@/components/person-edit-form";
-import { CircleField } from "@/components/primary-circle-picker";
-import { TagChip } from "@/components/tag-chip";
+import { CircleField, LabelsField } from "@/components/primary-circle-picker";
 import { TierBadge } from "@/components/tier-badge";
 import { Timeline } from "@/components/timeline";
 import { contactLabel, formatDate, formatDay, formatRelative } from "@/lib/format";
 import { ApiError } from "@/lib/api/errors";
 import { GENDER_LABEL } from "@/lib/schemas/enums";
-import type { ApiEvent } from "@/lib/types";
+import type { ApiEvent, ApiTag } from "@/lib/types";
 import { getPersonDetail, type PersonDetail } from "@/lib/services/people";
+import { listTags } from "@/lib/services/tags";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const person = await loadPerson(id);
   if (!person) notFound();
 
-  const labels = person.tags.filter((t) => t.kind !== "circle");
+  const vocabulary: ApiTag[] = (await listTags()).map(({ id, name, kind }) => ({ id, name, kind }));
   const contacts = Object.entries(person.contacts);
   const events = timelineEvents(person);
 
@@ -115,7 +115,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             <span className="text-amber-700">所在地未能定位，可在编辑里手动填坐标</span>
           ) : null}
         </div>
-        <PersonEditForm person={person} initialOpen={editGeo} />
+        <PersonEditForm person={person} vocabulary={vocabulary} initialOpen={editGeo} />
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -149,19 +149,18 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         <section className="space-y-2 rounded-xl border bg-card p-4">
           <h2 className="text-sm font-semibold">圈子和标签</h2>
           <div className="space-y-3 text-sm">
-            <CircleField personId={person.id} tags={person.tags} primaryCircleTagId={person.primary_circle_tag_id} />
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="w-8 text-xs text-muted-foreground">标签</span>
-              {labels.length === 0 ? (
-                <span className="text-xs text-muted-foreground">用来查找，例如羽毛球、律师。</span>
-              ) : (
-                labels.map((t) => (
-                  <Link key={t.id} href={`/people?tag=${encodeURIComponent(t.name)}`}>
-                    <TagChip name={t.name} kind={t.kind} />
-                  </Link>
-                ))
-              )}
-            </div>
+            <CircleField
+              personId={person.id}
+              tags={person.tags}
+              primaryCircleTagId={person.primary_circle_tag_id}
+              circles={vocabulary.filter((t) => t.kind === "circle")}
+            />
+            <LabelsField
+              personId={person.id}
+              tags={person.tags}
+              primaryCircleTagId={person.primary_circle_tag_id}
+              options={vocabulary.filter((t) => t.kind !== "circle")}
+            />
           </div>
         </section>
       </div>

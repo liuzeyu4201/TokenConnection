@@ -5,25 +5,17 @@ import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { NativeSelect } from "@/components/native-select";
-import { TagChip } from "@/components/tag-chip";
+import { CirclePicker, LabelsPicker, type TagOption } from "@/components/tag-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch, errorMessage } from "@/lib/api-client";
 import { contactLabel, QUICK_CONTACT_KEYS } from "@/lib/format";
-import {
-  GENDER_LABEL,
-  GENDER_VALUES,
-  TIER_LABEL,
-  TIER_VALUES,
-  type Gender,
-  type TagKind,
-  type Tier,
-} from "@/lib/schemas/enums";
+import { resolvePrimaryCircle } from "@/lib/map/primary-circle";
+import { GENDER_LABEL, GENDER_VALUES, TIER_LABEL, TIER_VALUES, type Gender, type Tier } from "@/lib/schemas/enums";
 import type { ApiPerson } from "@/lib/types";
 
 type ContactRow = { key: string; value: string };
-type TagDraft = { name: string; kind: TagKind };
 
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -35,7 +27,16 @@ function Field({ label, children, className }: { label: string; children: React.
 }
 
 /** Manual editing of every field (design.md §17: works without the LLM). */
-export function PersonEditForm({ person, initialOpen = false }: { person: ApiPerson; initialOpen?: boolean }) {
+export function PersonEditForm({
+  person,
+  vocabulary,
+  initialOpen = false,
+}: {
+  person: ApiPerson;
+  /** Circles and tags defined in settings. */
+  vocabulary: TagOption[];
+  initialOpen?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(initialOpen);
   const [busy, setBusy] = React.useState(false);
@@ -52,11 +53,12 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
   const [contacts, setContacts] = React.useState<ContactRow[]>(
     Object.entries(person.contacts).map(([key, value]) => ({ key, value })),
   );
-  const [circle, setCircle] = React.useState(person.tags.find((t) => t.kind === "circle")?.name ?? "");
-  const [tags, setTags] = React.useState<TagDraft[]>(
+  const [circle, setCircle] = React.useState<TagOption | null>(
+    resolvePrimaryCircle(person.primary_circle_tag_id, person.tags),
+  );
+  const [tags, setTags] = React.useState<TagOption[]>(
     person.tags.filter((t) => t.kind !== "circle").map((t) => ({ name: t.name, kind: t.kind })),
   );
-  const [newTag, setNewTag] = React.useState("");
 
   // Geo (design.md §14.2): "auto" follows the offline geocoder, "manual" pins coordinates.
   const [geoMode, setGeoMode] = React.useState<"auto" | "manual">(person.geo_manual ? "manual" : "auto");
@@ -87,13 +89,6 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
     setLng(String(c.lng));
     setCityResults([]);
     setCityQuery(c.name);
-  };
-
-  const addTag = () => {
-    const n = newTag.trim();
-    if (!n) return;
-    setTags((list) => (list.some((t) => t.name === n) ? list : [...list, { name: n, kind: "skill" }]));
-    setNewTag("");
   };
 
   const save = async () => {
@@ -128,7 +123,7 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
           how_met: howMet || null,
           met_at: metAt || null,
           contacts: record,
-          tags: circle.trim() ? [...tags, { name: circle.trim(), kind: "circle" }] : tags,
+          tags: circle ? [...tags, { name: circle.name, kind: "circle" }] : tags,
           ...(geoMode === "manual"
             ? { lat: Number(lat), lng: Number(lng), geo_manual: true }
             : { geo_manual: false }),
@@ -281,29 +276,8 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
 
       <div className="space-y-2">
         <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">圈子和标签</h4>
-        <Input value={circle} onChange={(e) => setCircle(e.target.value)} placeholder="圈子，只填一个，例如 球友" />
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag, i) => (
-            <TagChip key={`${tag.kind}-${tag.name}`} name={tag.name} kind={tag.kind} onRemove={() => setTags((list) => list.filter((_, j) => j !== i))} />
-          ))}
-          {tags.length === 0 ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            value={newTag}
-            placeholder="标签，例如 羽毛球"
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-          />
-          <Button type="button" variant="outline" size="sm" onClick={addTag}>
-            添加
-          </Button>
-        </div>
+        <CirclePicker circles={vocabulary.filter((t) => t.kind === "circle")} value={circle} onChange={setCircle} />
+        <LabelsPicker options={vocabulary.filter((t) => t.kind !== "circle")} value={tags} onChange={setTags} />
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

@@ -136,6 +136,7 @@ export async function extract(
     today,
     forcedIntent: options.forcedIntent,
     targetPersonId: options.targetPersonId,
+    tagVocabulary: options.tagVocabulary,
   });
 
   let lastError: unknown;

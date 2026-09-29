@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "cn";
 
 import { TAG_KIND_LABEL, type TagKind } from "@/lib/schemas/enums";
@@ -12,11 +13,13 @@ export function TagChip({
   name,
   kind,
   className,
+  href,
   onRemove,
 }: {
   name: string;
   kind: TagKind;
   className?: string;
+  href?: string;
   onRemove?: () => void;
 }) {
   return (
@@ -28,7 +31,13 @@ export function TagChip({
       )}
       title={TAG_KIND_LABEL[kind]}
     >
-      {name}
+      {href ? (
+        <Link href={href} className="hover:underline">
+          {name}
+        </Link>
+      ) : (
+        name
+      )}
       {onRemove ? (
         <button
           type="button"

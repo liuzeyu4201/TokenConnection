@@ -248,7 +248,7 @@ async function main() {
   const { closeDb, getDb } = await import("./index");
   const { events, inbox, people, peopleEmbeddings, peopleTags, tags } = await import("./schema");
   const { sql } = await import("drizzle-orm");
-  const { replacePersonTags } = await import("@/lib/services/tags");
+  const { replacePersonTags, upsertTags } = await import("@/lib/services/tags");
   const { recomputeLastContact } = await import("@/lib/services/events");
   const { initialGeo } = await import("@/lib/services/people");
   const { embedPerson } = await import("@/lib/llm/embed");
@@ -270,6 +270,8 @@ async function main() {
   }
 
   console.log(`LLM provider: ${getLlmProviderKind()}（embedding 模型 ${getEmbeddingModelName()}）`);
+
+  await upsertTags(SEED_PEOPLE.flatMap((person) => person.tags.map(([name, kind]) => ({ name, kind }))));
 
   const ids: string[] = [];
   for (const person of SEED_PEOPLE) {

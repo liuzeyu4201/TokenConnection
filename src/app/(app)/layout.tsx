@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <AppNav pendingCount={pendingCount} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-4 pb-24 md:pt-6 md:pb-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-24 md:pt-6 md:pb-10">{children}</main>
     </>
   );
 }
