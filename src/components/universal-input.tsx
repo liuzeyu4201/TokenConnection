@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUp, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowUp, CheckCircle2, ImagePlus, Loader2, X } from "lucide-react";
 
 import { DraftCard } from "@/components/draft-card";
 import { SearchResults } from "@/components/search-results";
@@ -14,16 +14,10 @@ import {
   buildSubmission,
   findNextPlaceholder,
   hasPlaceholder,
-  isOmniboxMode,
-  OMNIBOX_MODE_STORAGE_KEY,
-  OMNIBOX_MODES,
-  type OmniboxMode,
   type OmniboxTemplate,
-  QUERY_TEMPLATES,
   RECORD_TEMPLATES,
 } from "@/lib/omnibox/templates";
 import type { ApiInboxApplyResult, ApiInboxParseResult } from "@/lib/types";
-import { cn } from "cn";
 
 type State =
   | { kind: "idle" }
@@ -33,66 +27,29 @@ type State =
   | { kind: "discarded" }
   | { kind: "failed"; message: string };
 
-const AUTO_EXAMPLES: OmniboxTemplate[] = [
-  { label: "今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情", text: "今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情" },
-  { label: "小王上周帮我修了球拍", text: "小王上周帮我修了球拍" },
-  { label: "想找个人教我打羽毛球", text: "想找个人教我打羽毛球" },
-];
-
-function chipsForMode(mode: OmniboxMode): OmniboxTemplate[] {
-  if (mode === "record") return RECORD_TEMPLATES;
-  if (mode === "query") return QUERY_TEMPLATES;
-  return AUTO_EXAMPLES;
-}
-
-// The chosen mode lives in localStorage; exposed as an external store so the
-// server renders "auto" and the client re-renders with the saved value without
-// a hydration mismatch.
-const modeListeners = new Set<() => void>();
-function subscribeMode(listener: () => void) {
-  modeListeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => {
-    modeListeners.delete(listener);
-    window.removeEventListener("storage", listener);
-  };
-}
-let memoryMode: OmniboxMode | null = null;
-function readStoredMode(): OmniboxMode {
-  if (memoryMode) return memoryMode;
-  try {
-    const saved = window.localStorage.getItem(OMNIBOX_MODE_STORAGE_KEY);
-    return isOmniboxMode(saved) ? saved : "auto";
-  } catch {
-    return "auto";
-  }
-}
-function writeStoredMode(mode: OmniboxMode) {
-  memoryMode = mode;
-  try {
-    window.localStorage.setItem(OMNIBOX_MODE_STORAGE_KEY, mode);
-  } catch {
-    // localStorage unavailable (private mode etc.) — the mode lives in memory for this page only.
-  }
-  for (const listener of modeListeners) listener();
-}
-const serverMode = (): OmniboxMode => "auto";
+const PLACEHOLDER = "记一个人、追加一句，或者找人。例如：今天球馆认识小王，羽毛球教练，深圳…";
 
 /**
  * The single entry point (design.md §3 #2, §11): record, update and query all
- * start here. Results expand in place — draft card, search results or a
- * candidate picker — never on another page.
- *
- * A mode switch (自动 / 记人 / 找人) forces the intent the same way the `+` / `?`
- * prefixes do, and 记人 mode offers fill-in templates with 【】 blanks.
+ * start here. The model decides the intent. Fill-in templates sit under the
+ * box; `+` / `?` prefixes still force record or query.
+ * Results expand in place — draft card, search results or a candidate picker.
  */
 export function UniversalInput() {
   const router = useRouter();
   const [text, setText] = React.useState("");
-  const mode = React.useSyncExternalStore(subscribeMode, readStoredMode, serverMode);
+  const [image, setImage] = React.useState<File | null>(null);
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [state, setState] = React.useState<State>({ kind: "idle" });
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
   const pendingSelection = React.useRef<{ start: number; end: number } | null>(null);
+
+  const clearImage = () => {
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    setImage(null);
+    setImageUrl(null);
+  };
 
   // Apply a selection requested by a template insert once React has flushed the new text.
   React.useEffect(() => {
@@ -103,11 +60,6 @@ export function UniversalInput() {
     el.focus();
     el.setSelectionRange(sel.start, sel.end);
   }, [text]);
-
-  const changeMode = (next: OmniboxMode) => {
-    writeStoredMode(next);
-    textareaRef.current?.focus();
-  };
 
   const selectPlaceholder = (source: string, from: number) => {
     const next = findNextPlaceholder(source, from);
@@ -122,18 +74,44 @@ export function UniversalInput() {
     }
   };
 
-  const submission = buildSubmission(text, mode);
-  const canSubmit = submission.length > 0 && state.kind !== "loading";
-  const modeMeta = OMNIBOX_MODES.find((m) => m.value === mode) ?? OMNIBOX_MODES[0];
+  const submission = buildSubmission(text, "auto");
+  const canSubmit = (submission.length > 0 || image !== null) && state.kind !== "loading";
+
+  const takeImage = (file: File | null | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setState({ kind: "failed", message: "只支持 jpg、png、webp、gif 图片" });
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setState({ kind: "failed", message: "图片不能超过 4MB" });
+      return;
+    }
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    setImage(file);
+    setImageUrl(URL.createObjectURL(file));
+  };
 
   const submit = async () => {
     if (!canSubmit) return;
-    setState({ kind: "loading", text: submission.replace(/^[+＋?？]/, "") });
+    const shown = submission.replace(/^[+＋?？]/, "") || "这张图片";
+    setState({ kind: "loading", text: shown });
     try {
-      const result = await apiFetch<ApiInboxParseResult>("/api/v1/inbox", {
-        method: "POST",
-        body: { raw_text: submission, source: "web" },
-      });
+      const result = image
+        ? await apiFetch<ApiInboxParseResult>("/api/v1/inbox", {
+            method: "POST",
+            form: (() => {
+              const form = new FormData();
+              form.set("raw_text", submission);
+              form.set("source", "web");
+              form.set("image", image);
+              return form;
+            })(),
+          })
+        : await apiFetch<ApiInboxParseResult>("/api/v1/inbox", {
+            method: "POST",
+            body: { raw_text: submission, source: "web" },
+          });
       setState({ kind: "parsed", result });
     } catch (err) {
       setState({ kind: "failed", message: errorMessage(err) });
@@ -142,6 +120,7 @@ export function UniversalInput() {
 
   const reset = () => {
     setText("");
+    clearImage();
     setState({ kind: "idle" });
     textareaRef.current?.focus();
   };
@@ -149,32 +128,40 @@ export function UniversalInput() {
   return (
     <section className="space-y-3">
       <div className="rounded-2xl border bg-card p-3 shadow-xs">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="输入模式" className="inline-flex rounded-lg border p-0.5 text-xs">
-            {OMNIBOX_MODES.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                role="tab"
-                aria-selected={mode === m.value}
-                onClick={() => changeMode(m.value)}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-muted-foreground transition-colors",
-                  mode === m.value && "bg-primary text-primary-foreground",
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
+        {imageUrl ? (
+          <div className="mb-2 flex items-center gap-2">
+            <div
+              role="img"
+              aria-label="待识别的图片"
+              className="h-16 w-16 shrink-0 rounded-md border bg-cover bg-center"
+              style={{ backgroundImage: `url(${imageUrl})` }}
+            />
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{image?.name || "粘贴的图片"}</span>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="移除图片" onClick={clearImage}>
+              <X />
+            </Button>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {mode === "auto" ? "由模型判断是记还是找" : mode === "record" ? "这次一定当作记录" : "这次一定当作找人"}
-          </p>
-        </div>
+        ) : null}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            takeImage(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
         <Textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onPaste={(e) => {
+            const file = Array.from(e.clipboardData.files).find((item) => item.type.startsWith("image/"));
+            if (!file) return;
+            e.preventDefault();
+            takeImage(file);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
@@ -190,26 +177,33 @@ export function UniversalInput() {
               }
             }
           }}
-          rows={mode === "record" && text.includes("\n") ? 7 : 2}
-          placeholder={modeMeta.hint}
+          rows={text.includes("\n") ? 7 : 2}
+          placeholder={PLACEHOLDER}
           className="min-h-16 resize-none border-0 bg-transparent p-1 text-base shadow-none focus-visible:ring-0 md:text-base"
           autoFocus
         />
         <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-[11px] text-muted-foreground">
-            {hasPlaceholder(text) ? (
-              <>
-                Tab 跳到下一个【】，没填的空会自动忽略。
-              </>
-            ) : mode === "auto" ? (
-              <>
-                回车提交，Shift+回车换行。<span className="font-mono">+</span> 开头强制记录，
-                <span className="font-mono">?</span> 开头强制查询。
-              </>
-            ) : (
-              <>回车提交，Shift+回车换行。</>
-            )}
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="上传图片"
+              onClick={() => fileRef.current?.click()}
+            >
+              <ImagePlus />
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              {hasPlaceholder(text) ? (
+                <>Tab 跳到下一个【】，没填的空会自动忽略。</>
+              ) : (
+                <>
+                  回车提交。可粘贴名片或聊天截图。<span className="font-mono">+</span> 强制记录，
+                  <span className="font-mono">?</span> 强制查询。
+                </>
+              )}
+            </p>
+          </div>
           <Button size="icon" onClick={submit} disabled={!canSubmit} aria-label="提交">
             {state.kind === "loading" ? <Loader2 className="animate-spin" /> : <ArrowUp />}
           </Button>
@@ -218,8 +212,8 @@ export function UniversalInput() {
 
       {state.kind === "idle" ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          {mode !== "auto" ? <span className="text-[11px] text-muted-foreground">{mode === "record" ? "模板：" : "例如："}</span> : null}
-          {chipsForMode(mode).map((chip) => (
+          <span className="text-[11px] text-muted-foreground">模板：</span>
+          {RECORD_TEMPLATES.map((chip) => (
             <button
               key={chip.label}
               type="button"

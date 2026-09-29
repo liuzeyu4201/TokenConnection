@@ -19,6 +19,8 @@ export class ApiClientError extends Error {
 type ApiFetchInit = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
+  /** Multipart body. The browser sets the boundary; do not also pass `body`. */
+  form?: FormData;
   signal?: AbortSignal;
 };
 
@@ -26,7 +28,7 @@ export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promis
   const response = await fetch(path, {
     method: init.method ?? "GET",
     headers: init.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    body: init.form ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
     credentials: "same-origin",
     signal: init.signal,
   });

@@ -4,16 +4,27 @@ import { NonEmptyString } from "./common";
 import { DraftSchema } from "./draft";
 import { InboxSource, InboxStatus } from "./enums";
 
-export const InboxCreateSchema = z.object({
-  raw_text: NonEmptyString.max(4000),
+const inboxCreateFields = {
   source: InboxSource.default("web"),
   /**
    * Optional hint used by the person detail page ("追加一句"): forces the
    * extraction to treat the text as an update of this person.
    */
   person_id: z.uuid().optional(),
+};
+
+export const InboxCreateSchema = z.object({
+  raw_text: NonEmptyString.max(4000),
+  ...inboxCreateFields,
 });
 export type InboxCreateInput = z.infer<typeof InboxCreateSchema>;
+export type InboxImageCreateInput = z.infer<typeof InboxImageCreateSchema>;
+
+/** Multipart upload: the sentence can be empty when an image is attached. */
+export const InboxImageCreateSchema = z.object({
+  raw_text: z.string().max(4000).default(""),
+  ...inboxCreateFields,
+});
 
 export const InboxQuerySchema = z.object({
   status: z.preprocess(

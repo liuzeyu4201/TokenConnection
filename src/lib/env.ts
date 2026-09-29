@@ -66,3 +66,22 @@ export function getEmbeddingConfig() {
 export function getEmbeddingModelId(): string {
   return process.env.EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 }
+
+export const DEFAULT_VISION_MODEL = "Qwen/Qwen3-VL-8B-Instruct";
+
+/**
+ * Vision chat for reading cards and screenshots. Defaults to the same
+ * SiliconFlow key and base URL as embeddings; DeepSeek's chat model has no
+ * image input.
+ */
+export function getVisionConfig() {
+  const apiKey = process.env.VISION_API_KEY || process.env.EMBEDDING_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing required environment variable VISION_API_KEY or EMBEDDING_API_KEY");
+  }
+  return {
+    apiKey,
+    model: process.env.VISION_MODEL || DEFAULT_VISION_MODEL,
+    baseURL: process.env.VISION_BASE_URL || process.env.EMBEDDING_BASE_URL || DEFAULT_EMBEDDING_BASE_URL,
+  };
+}

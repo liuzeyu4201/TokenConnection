@@ -7,9 +7,10 @@ import { refreshPersonEmbedding } from "@/lib/llm/embed";
 import { extract } from "@/lib/llm/extract";
 import { findMentionedPeople } from "@/lib/llm/mock";
 import { parseInputPrefix } from "@/lib/llm/prefix";
+import { composeImageText, describeImage, type ImagePayload } from "@/lib/llm/vision";
 import type { ExtractOptions, PeopleIndexEntry } from "@/lib/llm/types";
 import { fallbackDraft, type Draft } from "@/lib/schemas/draft";
-import type { InboxCreateInput, InboxQuery } from "@/lib/schemas/inbox";
+import type { InboxCreateInput, InboxImageCreateInput, InboxQuery } from "@/lib/schemas/inbox";
 
 import { insertEvent, recomputeLastContact } from "./events";
 import {
@@ -87,10 +88,29 @@ export async function describeInbox(id: string): Promise<InboxParseResult> {
 // Create + parse
 // ---------------------------------------------------------------------------
 
-export async function createAndParseInbox(input: InboxCreateInput): Promise<InboxParseResult> {
+export async function createAndParseInbox(
+  input: InboxCreateInput | InboxImageCreateInput,
+  image?: ImagePayload,
+): Promise<InboxParseResult> {
+  let rawText = input.raw_text;
+  if (image) {
+    let caption: string | null = null;
+    try {
+      caption = await describeImage(image);
+    } catch (error) {
+      if (!input.raw_text.trim()) {
+        const message = error instanceof Error ? error.message : "图片识别失败";
+        throw badRequest(message, "vision_failed");
+      }
+      console.error("[inbox] image read failed, continuing with the typed text:", error);
+    }
+    rawText = composeImageText(input.raw_text, caption);
+  }
+  if (!rawText.trim()) throw badRequest("请输入一句话，或上传一张图片");
+
   const [row] = await db
     .insert(inbox)
-    .values({ raw_text: input.raw_text, source: input.source })
+    .values({ raw_text: rawText, source: input.source })
     .returning();
   return parseInboxRow(row, input.person_id);
 }

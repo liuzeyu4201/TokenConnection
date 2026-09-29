@@ -5,6 +5,7 @@ import {
   getEmbeddingConfig,
   getEmbeddingModelId,
   getLlmProviderKind,
+  getVisionConfig,
 } from "@/lib/env";
 
 import { MOCK_EMBEDDING_MODEL } from "./mock";
@@ -35,6 +36,16 @@ export function getExtractionModel() {
     supportsStructuredOutputs: false,
   });
   return deepseek.chatModel(config.model);
+}
+
+export function getVisionModel() {
+  const config = getVisionConfig();
+  const provider = createOpenAICompatible({
+    name: "vision",
+    baseURL: config.baseURL,
+    apiKey: config.apiKey,
+  });
+  return provider.chatModel(config.model);
 }
 
 export function getEmbeddingModel() {
