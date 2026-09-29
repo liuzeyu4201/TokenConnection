@@ -76,7 +76,7 @@ async function loadAll(): Promise<PersonWithTags[]> {
 
 function distinctSkills(list: MapPerson[]): string[] {
   const set = new Set<string>();
-  for (const p of list) for (const t of p.tags) if (t.kind === "skill") set.add(t.name);
+  for (const p of list) for (const t of p.tags) if (t.kind !== "circle") set.add(t.name);
   return [...set].sort((a, b) => a.localeCompare(b, "zh-CN"));
 }
 

@@ -14,8 +14,6 @@ import { contactLabel, QUICK_CONTACT_KEYS } from "@/lib/format";
 import {
   GENDER_LABEL,
   GENDER_VALUES,
-  TAG_KIND_LABEL,
-  TAG_KIND_VALUES,
   TIER_LABEL,
   TIER_VALUES,
   type Gender,
@@ -54,8 +52,11 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
   const [contacts, setContacts] = React.useState<ContactRow[]>(
     Object.entries(person.contacts).map(([key, value]) => ({ key, value })),
   );
-  const [tags, setTags] = React.useState<TagDraft[]>(person.tags.map((t) => ({ name: t.name, kind: t.kind })));
-  const [newTag, setNewTag] = React.useState<TagDraft>({ name: "", kind: "skill" });
+  const [circle, setCircle] = React.useState(person.tags.find((t) => t.kind === "circle")?.name ?? "");
+  const [tags, setTags] = React.useState<TagDraft[]>(
+    person.tags.filter((t) => t.kind !== "circle").map((t) => ({ name: t.name, kind: t.kind })),
+  );
+  const [newTag, setNewTag] = React.useState("");
 
   // Geo (design.md §14.2): "auto" follows the offline geocoder, "manual" pins coordinates.
   const [geoMode, setGeoMode] = React.useState<"auto" | "manual">(person.geo_manual ? "manual" : "auto");
@@ -89,10 +90,10 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
   };
 
   const addTag = () => {
-    const n = newTag.name.trim();
+    const n = newTag.trim();
     if (!n) return;
-    setTags((list) => (list.some((t) => t.name === n && t.kind === newTag.kind) ? list : [...list, { name: n, kind: newTag.kind }]));
-    setNewTag((t) => ({ ...t, name: "" }));
+    setTags((list) => (list.some((t) => t.name === n) ? list : [...list, { name: n, kind: "skill" }]));
+    setNewTag("");
   };
 
   const save = async () => {
@@ -127,7 +128,7 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
           how_met: howMet || null,
           met_at: metAt || null,
           contacts: record,
-          tags,
+          tags: circle.trim() ? [...tags, { name: circle.trim(), kind: "circle" }] : tags,
           ...(geoMode === "manual"
             ? { lat: Number(lat), lng: Number(lng), geo_manual: true }
             : { geo_manual: false }),
@@ -279,7 +280,8 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">标签</h4>
+        <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">圈子和标签</h4>
+        <Input value={circle} onChange={(e) => setCircle(e.target.value)} placeholder="圈子，只填一个，例如 球友" />
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag, i) => (
             <TagChip key={`${tag.kind}-${tag.name}`} name={tag.name} kind={tag.kind} onRemove={() => setTags((list) => list.filter((_, j) => j !== i))} />
@@ -287,17 +289,10 @@ export function PersonEditForm({ person, initialOpen = false }: { person: ApiPer
           {tags.length === 0 ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
         </div>
         <div className="flex items-center gap-2">
-          <NativeSelect className="w-24 shrink-0" value={newTag.kind} onChange={(e) => setNewTag((t) => ({ ...t, kind: e.target.value as TagKind }))}>
-            {TAG_KIND_VALUES.map((k) => (
-              <option key={k} value={k}>
-                {TAG_KIND_LABEL[k]}
-              </option>
-            ))}
-          </NativeSelect>
           <Input
-            value={newTag.name}
-            placeholder="羽毛球 / 前同事"
-            onChange={(e) => setNewTag((t) => ({ ...t, name: e.target.value }))}
+            value={newTag}
+            placeholder="标签，例如 羽毛球"
+            onChange={(e) => setNewTag(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

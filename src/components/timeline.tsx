@@ -23,7 +23,13 @@ const KIND_DOT: Record<EventKind, string> = {
  * Append-only timeline. Entries can be deleted (with confirmation) but never
  * edited — decision on design.md §19 Q1.
  */
-export function Timeline({ personId, events }: { personId: string; events: ApiEvent[] }) {
+export function Timeline({
+  personId,
+  events,
+}: {
+  personId: string;
+  events: Array<ApiEvent & { readonly?: boolean }>;
+}) {
   const router = useRouter();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -61,16 +67,18 @@ export function Timeline({ personId, events }: { personId: string; events: ApiEv
                 </div>
                 <p className="mt-0.5 text-sm leading-relaxed">{event.content}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="shrink-0 text-muted-foreground opacity-60 hover:text-destructive md:opacity-0 md:group-hover:opacity-100"
-                aria-label="删除事件"
-                disabled={busyId === event.id}
-                onClick={() => void remove(event)}
-              >
-                <Trash2 />
-              </Button>
+              {event.readonly ? null : (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="shrink-0 text-muted-foreground opacity-60 hover:text-destructive md:opacity-0 md:group-hover:opacity-100"
+                  aria-label="删除事件"
+                  disabled={busyId === event.id}
+                  onClick={() => void remove(event)}
+                >
+                  <Trash2 />
+                </Button>
+              )}
             </div>
           </li>
         ))}

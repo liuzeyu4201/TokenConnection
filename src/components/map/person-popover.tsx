@@ -44,11 +44,13 @@ export function PersonPopover({
         </Button>
       </div>
       {person.summary ? <p className="mt-2 text-sm leading-relaxed">{person.summary}</p> : null}
-      {person.tags.length > 0 ? (
+      {person.tags.some((t) => t.kind !== "circle") ? (
         <div className="mt-2 flex flex-wrap gap-1">
-          {person.tags.map((t) => (
-            <TagChip key={t.id} name={t.name} kind={t.kind} />
-          ))}
+          {person.tags
+            .filter((t) => t.kind !== "circle")
+            .map((t) => (
+              <TagChip key={t.id} name={t.name} kind={t.kind} />
+            ))}
         </div>
       ) : null}
       <div className="mt-3 space-y-2 border-t pt-3">

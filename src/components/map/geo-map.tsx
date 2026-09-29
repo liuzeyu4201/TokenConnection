@@ -57,7 +57,7 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
   const [selectedPerson, setSelectedPerson] = React.useState<ApiMapPerson | null>(null);
 
   const matches = React.useCallback(
-    (p: ApiMapPerson) => (!tier || p.tier === tier) && (!skill || p.tags.some((t) => t.kind === "skill" && t.name === skill)),
+    (p: ApiMapPerson) => (!tier || p.tier === tier) && (!skill || p.tags.some((t) => t.kind !== "circle" && t.name === skill)),
     [tier, skill],
   );
   const hasFilter = Boolean(tier || skill);
@@ -156,7 +156,7 @@ export function GeoMap({ data }: { data: ApiGeoMap }) {
           ))}
         </NativeSelect>
         <NativeSelect value={skill} onChange={(e) => setSkill(e.target.value)} aria-label="按能力筛选">
-          <option value="">全部能力</option>
+          <option value="">全部标签</option>
           {data.skills.map((s) => (
             <option key={s} value={s}>
               {s}

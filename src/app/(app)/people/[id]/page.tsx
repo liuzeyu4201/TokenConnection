@@ -5,13 +5,14 @@ import { ChevronLeft, MapPin } from "lucide-react";
 
 import { AppendInput } from "@/components/append-input";
 import { PersonEditForm } from "@/components/person-edit-form";
-import { PrimaryCirclePicker } from "@/components/primary-circle-picker";
+import { CircleField } from "@/components/primary-circle-picker";
 import { TagChip } from "@/components/tag-chip";
 import { TierBadge } from "@/components/tier-badge";
 import { Timeline } from "@/components/timeline";
 import { contactLabel, formatDate, formatDay, formatRelative } from "@/lib/format";
 import { ApiError } from "@/lib/api/errors";
 import { GENDER_LABEL } from "@/lib/schemas/enums";
+import type { ApiEvent } from "@/lib/types";
 import { getPersonDetail, type PersonDetail } from "@/lib/services/people";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,24 @@ export async function generateMetadata({ params }: PageProps<"/people/[id]">): P
   return { title: person?.name ?? "未找到" };
 }
 
+function timelineEvents(person: PersonDetail): Array<ApiEvent & { readonly?: boolean }> {
+  const events = person.events;
+  const howMet = person.how_met?.trim();
+  const hasMet = events.some((event) => event.kind === "met");
+  if (!howMet || hasMet) return events;
+  const happenedAt = person.met_at ?? String(person.created_at).slice(0, 10);
+  const origin: ApiEvent & { readonly?: boolean } = {
+    id: `how-met-${person.id}`,
+    person_id: person.id,
+    kind: "met",
+    content: howMet,
+    happened_at: happenedAt,
+    created_at: person.created_at,
+    readonly: true,
+  };
+  return [...events, origin].sort((a, b) => String(b.happened_at).localeCompare(String(a.happened_at)));
+}
+
 function contactHref(key: string, value: string): string | null {
   if (key === "phone") return `tel:${value.replace(/\s+/g, "")}`;
   if (key === "email") return `mailto:${value}`;
@@ -48,10 +67,9 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const person = await loadPerson(id);
   if (!person) notFound();
 
-  const skills = person.tags.filter((t) => t.kind === "skill");
-  const circles = person.tags.filter((t) => t.kind === "circle");
-  const others = person.tags.filter((t) => t.kind === "other");
+  const labels = person.tags.filter((t) => t.kind !== "circle");
   const contacts = Object.entries(person.contacts);
+  const events = timelineEvents(person);
 
   return (
     <div className="space-y-6">
@@ -66,36 +84,39 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           {person.gender !== "unknown" ? (
             <span className="text-sm text-muted-foreground">{GENDER_LABEL[person.gender]}</span>
           ) : null}
-          {person.location ? (
+          {person.location && person.lat != null && person.lng != null ? (
+            <Link
+              href="/map?view=geo"
+              title={`${person.geo_manual ? "手动坐标" : "已定位"} ${person.lat.toFixed(2)}, ${person.lng.toFixed(2)}`}
+              className="inline-flex items-center gap-0.5 text-sm text-muted-foreground underline-offset-2 hover:underline"
+            >
+              <MapPin className="size-3.5" />
+              {person.location}
+            </Link>
+          ) : person.location ? (
             <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground">
               <MapPin className="size-3.5" />
               {person.location}
             </span>
+          ) : person.lat != null && person.lng != null ? (
+            <Link href="/map?view=geo" className="inline-flex items-center gap-0.5 text-sm text-muted-foreground underline-offset-2 hover:underline">
+              <MapPin className="size-3.5" />
+              {person.lat.toFixed(2)}, {person.lng.toFixed(2)}
+            </Link>
           ) : null}
         </div>
         {person.summary ? <p className="text-base leading-relaxed">{person.summary}</p> : null}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {person.how_met ? <span>认识经过：{person.how_met}</span> : null}
           {person.met_at ? <span>认识于 {formatDay(person.met_at)}</span> : null}
           {person.last_contact_at ? (
             <span title={formatDate(person.last_contact_at)}>最近联系 {formatRelative(person.last_contact_at)}</span>
           ) : null}
-          <span>添加于 {formatDate(person.created_at)}</span>
-          {person.lat != null && person.lng != null ? (
-            <Link href="/map?view=geo" className="underline-offset-2 hover:underline">
-              {person.geo_manual ? "手动坐标" : "已定位"} {person.lat.toFixed(2)}, {person.lng.toFixed(2)}
-            </Link>
-          ) : person.location ? (
+          {person.location && (person.lat == null || person.lng == null) ? (
             <span className="text-amber-700">所在地未能定位，可在编辑里手动填坐标</span>
           ) : null}
         </div>
         <PersonEditForm person={person} initialOpen={editGeo} />
       </header>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">追加一句</h2>
-        <AppendInput personId={person.id} personName={person.name} />
-      </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <section className="space-y-2 rounded-xl border bg-card p-4">
@@ -126,36 +147,22 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         </section>
 
         <section className="space-y-2 rounded-xl border bg-card p-4">
-          <h2 className="text-sm font-semibold">标签</h2>
-          {person.tags.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无标签。</p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {skills.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-8 text-xs text-muted-foreground">能力</span>
-                  {skills.map((t) => (
-                    <Link key={t.id} href={`/people?tag=${encodeURIComponent(t.name)}`}>
-                      <TagChip name={t.name} kind={t.kind} />
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-              {circles.length > 0 ? (
-                <PrimaryCirclePicker personId={person.id} tags={person.tags} primaryCircleTagId={person.primary_circle_tag_id} />
-              ) : null}
-              {others.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-8 text-xs text-muted-foreground">其他</span>
-                  {others.map((t) => (
-                    <Link key={t.id} href={`/people?tag=${encodeURIComponent(t.name)}`}>
-                      <TagChip name={t.name} kind={t.kind} />
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
+          <h2 className="text-sm font-semibold">圈子和标签</h2>
+          <div className="space-y-3 text-sm">
+            <CircleField personId={person.id} tags={person.tags} primaryCircleTagId={person.primary_circle_tag_id} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-8 text-xs text-muted-foreground">标签</span>
+              {labels.length === 0 ? (
+                <span className="text-xs text-muted-foreground">用来查找，例如羽毛球、律师。</span>
+              ) : (
+                labels.map((t) => (
+                  <Link key={t.id} href={`/people?tag=${encodeURIComponent(t.name)}`}>
+                    <TagChip name={t.name} kind={t.kind} />
+                  </Link>
+                ))
+              )}
             </div>
-          )}
+          </div>
         </section>
       </div>
 
@@ -170,12 +177,17 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         )}
       </section>
 
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">追加一句</h2>
+        <AppendInput personId={person.id} personName={person.name} />
+      </section>
+
       <section className="space-y-3">
         <h2 className="flex items-baseline justify-between text-sm font-semibold">
           时间线
-          <span className="text-xs font-normal text-muted-foreground">{person.events.length} 条 · 只追加，可删除</span>
+          <span className="text-xs font-normal text-muted-foreground">{events.length} 条 · 只追加，可删除</span>
         </h2>
-        <Timeline personId={person.id} events={person.events} />
+        <Timeline personId={person.id} events={events} />
       </section>
     </div>
   );

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { people, peopleTags, tags, type TagRow } from "@/db/schema";
@@ -74,6 +74,19 @@ export async function deleteTag(id: string): Promise<void> {
   if (deleted.length === 0) throw notFound("标签不存在");
 }
 
+/**
+ * A person has one circle (the map sector). Extra circle names become ordinary
+ * tags so they stay searchable.
+ */
+export function foldTagInputs(inputs: TagInput[]): TagInput[] {
+  const normalized = normalizeTagInputs(inputs);
+  const circles = normalized.filter((t) => t.kind === "circle");
+  if (circles.length <= 1) return normalized;
+  const [keep, ...extra] = circles;
+  const rest = normalized.filter((t) => t.kind !== "circle");
+  return normalizeTagInputs([keep, ...rest, ...extra.map((t) => ({ name: t.name, kind: "other" as const }))]);
+}
+
 /** Deduplicate by (name, kind); case-sensitive on purpose (tags are short). */
 export function normalizeTagInputs(inputs: TagInput[]): TagInput[] {
   const seen = new Set<string>();
@@ -138,13 +151,13 @@ export async function getTagsForPeople(
   return result;
 }
 
-/** Replace the whole tag set of one person. */
+/** Replace the whole tag set of one person. The single circle, if any, becomes primary. */
 export async function replacePersonTags(
   personId: string,
   inputs: TagInput[],
   client: DbClient = db,
 ): Promise<TagRow[]> {
-  const rows = await upsertTags(inputs, client);
+  const rows = await upsertTags(foldTagInputs(inputs), client);
   await client.delete(peopleTags).where(eq(peopleTags.person_id, personId));
   if (rows.length > 0) {
     await client
@@ -152,31 +165,73 @@ export async function replacePersonTags(
       .values(rows.map((t) => ({ person_id: personId, tag_id: t.id })))
       .onConflictDoNothing();
   }
-  // Drop the primary circle when it is no longer one of the person's circle tags.
-  const circleIds = rows.filter((t) => t.kind === "circle").map((t) => t.id);
-  await client
-    .update(people)
-    .set({ primary_circle_tag_id: null })
-    .where(
-      and(
-        eq(people.id, personId),
-        isNotNull(people.primary_circle_tag_id),
-        circleIds.length > 0 ? notInArray(people.primary_circle_tag_id, circleIds) : undefined,
-      ),
-    );
+  const circle = rows.find((t) => t.kind === "circle") ?? null;
+  await client.update(people).set({ primary_circle_tag_id: circle?.id ?? null }).where(eq(people.id, personId));
   return rows;
 }
 
-/** Add tags to a person without removing existing ones. */
+/** Add tags to a person without removing existing ones. A second circle is saved as a tag. */
 export async function addPersonTags(
   personId: string,
   inputs: TagInput[],
   client: DbClient = db,
 ): Promise<void> {
-  const rows = await upsertTags(inputs, client);
+  const existing = await getTagsForPeople([personId], client);
+  const hasCircle = (existing.get(personId) ?? []).some((t) => t.kind === "circle");
+  let folded = foldTagInputs(inputs);
+  if (hasCircle) folded = normalizeTagInputs(folded.map((t) => (t.kind === "circle" ? { ...t, kind: "other" as const } : t)));
+  const rows = await upsertTags(folded, client);
   if (rows.length === 0) return;
   await client
     .insert(peopleTags)
     .values(rows.map((t) => ({ person_id: personId, tag_id: t.id })))
     .onConflictDoNothing();
+  if (!hasCircle) {
+    const circle = rows.find((t) => t.kind === "circle");
+    if (circle) await client.update(people).set({ primary_circle_tag_id: circle.id }).where(eq(people.id, personId));
+  }
+}
+
+/**
+ * Existing people may have several circle tags. Keep one as the map sector
+ * (the primary, else the first by name) and turn the others into ordinary tags.
+ */
+export async function collapseExtraCircles(): Promise<number> {
+  const everyone = await db.select({ id: people.id, primary: people.primary_circle_tag_id }).from(people);
+  const tagMap = await getTagsForPeople(everyone.map((p) => p.id));
+  let changed = 0;
+  for (const person of everyone) {
+    const circles = (tagMap.get(person.id) ?? []).filter((t) => t.kind === "circle");
+    if (circles.length === 0) continue;
+    const keep =
+      circles.find((t) => t.id === person.primary) ??
+      circles.slice().sort((a, b) => a.name.localeCompare(b.name, "zh-CN"))[0];
+    const extra = circles.filter((t) => t.id !== keep.id);
+    if (extra.length > 0) {
+      const ordinary = await upsertTags(extra.map((t) => ({ name: t.name, kind: "other" as const })));
+      if (ordinary.length > 0) {
+        await db
+          .insert(peopleTags)
+          .values(ordinary.map((t) => ({ person_id: person.id, tag_id: t.id })))
+          .onConflictDoNothing();
+      }
+      await db
+        .delete(peopleTags)
+        .where(
+          and(
+            eq(peopleTags.person_id, person.id),
+            inArray(
+              peopleTags.tag_id,
+              extra.map((t) => t.id),
+            ),
+          ),
+        );
+      changed += 1;
+    }
+    if (person.primary !== keep.id) {
+      await db.update(people).set({ primary_circle_tag_id: keep.id }).where(eq(people.id, person.id));
+      changed += 1;
+    }
+  }
+  return changed;
 }

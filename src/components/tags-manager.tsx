@@ -6,18 +6,18 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, errorMessage } from "@/lib/api-client";
-import { TAG_KIND_LABEL, TAG_KIND_VALUES, type TagKind } from "@/lib/schemas/enums";
+import type { TagKind } from "@/lib/schemas/enums";
 import type { ApiTagWithCount } from "@/lib/types";
 
 export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [newTag, setNewTag] = React.useState<{ name: string; kind: TagKind }>({ name: "", kind: "skill" });
+  const [newCircle, setNewCircle] = React.useState("");
+  const [newTag, setNewTag] = React.useState("");
   const [editing, setEditing] = React.useState<{ id: string; name: string; kind: TagKind } | null>(null);
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -33,12 +33,12 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
     }
   };
 
-  const create = () =>
+  const create = (name: string, kind: TagKind, clear: () => void) =>
     run(async () => {
-      const name = newTag.name.trim();
-      if (!name) return;
-      await apiFetch("/api/v1/tags", { method: "POST", body: { name, kind: newTag.kind } });
-      setNewTag((t) => ({ ...t, name: "" }));
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      await apiFetch("/api/v1/tags", { method: "POST", body: { name: trimmed, kind } });
+      clear();
     });
 
   const saveEdit = () =>
@@ -46,7 +46,7 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
       if (!editing) return;
       await apiFetch(`/api/v1/tags/${editing.id}`, {
         method: "PATCH",
-        body: { name: editing.name.trim(), kind: editing.kind },
+        body: { name: editing.name.trim() },
       });
       setEditing(null);
     });
@@ -56,38 +56,49 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
     void run(() => apiFetch(`/api/v1/tags/${tag.id}`, { method: "DELETE" }));
   };
 
-  const groups = TAG_KIND_VALUES.map((kind) => ({ kind, items: tags.filter((t) => t.kind === kind) }));
+  const groups = [
+    { title: "圈子", hint: "一个人只能属于其中一个。", items: tags.filter((t) => t.kind === "circle") },
+    { title: "标签", hint: "用来查找，可以打很多个。", items: tags.filter((t) => t.kind !== "circle") },
+  ];
 
   return (
     <div className="space-y-6">
-      <form
-        className="flex items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void create();
-        }}
-      >
-        <NativeSelect className="w-24 shrink-0" value={newTag.kind} onChange={(e) => setNewTag((t) => ({ ...t, kind: e.target.value as TagKind }))}>
-          {TAG_KIND_VALUES.map((k) => (
-            <option key={k} value={k}>
-              {TAG_KIND_LABEL[k]}
-            </option>
-          ))}
-        </NativeSelect>
-        <Input value={newTag.name} onChange={(e) => setNewTag((t) => ({ ...t, name: e.target.value }))} placeholder="新标签名，例如 羽毛球 / 前同事" />
-        <Button type="submit" disabled={busy || !newTag.name.trim()}>
-          <Plus /> 新建
-        </Button>
-      </form>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void create(newCircle, "circle", () => setNewCircle(""));
+          }}
+        >
+          <Input value={newCircle} onChange={(e) => setNewCircle(e.target.value)} placeholder="新圈子，例如 球友" />
+          <Button type="submit" disabled={busy || !newCircle.trim()}>
+            <Plus /> 圈子
+          </Button>
+        </form>
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void create(newTag, "skill", () => setNewTag(""));
+          }}
+        >
+          <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="新标签，例如 羽毛球" />
+          <Button type="submit" variant="outline" disabled={busy || !newTag.trim()}>
+            <Plus /> 标签
+          </Button>
+        </form>
+      </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      {tags.length === 0 ? <EmptyState>还没有标签。记人时会自动打上能力和圈子标签。</EmptyState> : null}
+      {tags.length === 0 ? <EmptyState>还没有圈子或标签。记人时会自动补上。</EmptyState> : null}
 
-      {groups.map(({ kind, items }) =>
+      {groups.map(({ title, hint, items }) =>
         items.length === 0 ? null : (
-          <section key={kind} className="space-y-2">
+          <section key={title} className="space-y-2">
             <h2 className="text-sm font-semibold">
-              {TAG_KIND_LABEL[kind]} <span className="font-normal text-muted-foreground">{items.length}</span>
+              {title} <span className="font-normal text-muted-foreground">{items.length}</span>
+              <span className="ml-2 text-xs font-normal text-muted-foreground">{hint}</span>
             </h2>
             <ul className="divide-y rounded-xl border bg-card">
               {items.map((tag) => {
@@ -96,13 +107,6 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
                   <li key={tag.id} className="flex items-center gap-2 px-3 py-2">
                     {isEditing ? (
                       <>
-                        <NativeSelect className="w-24 shrink-0" value={editing.kind} onChange={(e) => setEditing({ ...editing, kind: e.target.value as TagKind })}>
-                          {TAG_KIND_VALUES.map((k) => (
-                            <option key={k} value={k}>
-                              {TAG_KIND_LABEL[k]}
-                            </option>
-                          ))}
-                        </NativeSelect>
                         <Input
                           value={editing.name}
                           onChange={(e) => setEditing({ ...editing, name: e.target.value })}

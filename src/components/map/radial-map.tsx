@@ -97,7 +97,7 @@ export function RadialMap({ data }: { data: ApiRadialMap }) {
 
   const matches = React.useCallback(
     (person: ApiMapPerson) =>
-      (!skill || person.tags.some((t) => t.kind === "skill" && t.name === skill)) &&
+      (!skill || person.tags.some((t) => t.kind !== "circle" && t.name === skill)) &&
       (!location || person.location === location),
     [skill, location],
   );
@@ -149,7 +149,7 @@ export function RadialMap({ data }: { data: ApiRadialMap }) {
     <div className="relative">
       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <NativeSelect value={skill} onChange={(e) => setSkill(e.target.value)} aria-label="按能力筛选">
-          <option value="">全部能力</option>
+          <option value="">全部标签</option>
           {data.skills.map((s) => (
             <option key={s} value={s}>
               {s}

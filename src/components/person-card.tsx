@@ -46,14 +46,14 @@ export function PersonCard({
           </span>
         ) : null}
       </div>
-      {person.tags.length > 0 ? (
+      {person.tags.some((tag) => tag.kind !== "circle") ? (
         <div className="mt-2 flex flex-wrap gap-1">
-          {person.tags.slice(0, 8).map((tag) => (
-            <TagChip key={tag.id} name={tag.name} kind={tag.kind} />
-          ))}
-          {person.tags.length > 8 ? (
-            <span className="text-xs text-muted-foreground">+{person.tags.length - 8}</span>
-          ) : null}
+          {person.tags
+            .filter((tag) => tag.kind !== "circle")
+            .slice(0, 8)
+            .map((tag) => (
+              <TagChip key={tag.id} name={tag.name} kind={tag.kind} />
+            ))}
         </div>
       ) : null}
       {footer}

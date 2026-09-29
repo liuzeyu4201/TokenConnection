@@ -17,15 +17,25 @@ import {
   EVENT_KIND_VALUES,
   GENDER_LABEL,
   GENDER_VALUES,
-  TAG_KIND_LABEL,
-  TAG_KIND_VALUES,
   TIER_LABEL,
   TIER_VALUES,
-  type TagKind,
 } from "@/lib/schemas/enums";
 import type { ApiCandidate, ApiInboxApplyResult, ApiInboxParseResult } from "@/lib/types";
 
 export const CONFIDENCE_THRESHOLD = 0.7;
+
+function splitDraftTags(source: Draft): { circle: string; draft: Draft } {
+  const circles = source.tags.filter((tag) => tag.kind === "circle");
+  const rest = source.tags.filter((tag) => tag.kind !== "circle");
+  const [keep, ...extra] = circles;
+  return {
+    circle: keep?.name ?? "",
+    draft: {
+      ...source,
+      tags: [...rest, ...extra.map((tag) => ({ ...tag, kind: "other" as const }))],
+    },
+  };
+}
 
 type ContactRow = { key: string; value: string };
 
@@ -85,17 +95,21 @@ export function DraftCard({
   onDiscarded,
   onReparsed,
 }: Props) {
-  const [draft, setDraft] = React.useState<Draft>(initialDraft);
+  const opened = splitDraftTags(initialDraft);
+  const [draft, setDraft] = React.useState<Draft>(opened.draft);
+  const [circle, setCircle] = React.useState(opened.circle);
   const [contacts, setContacts] = React.useState<ContactRow[]>(() => toRows(initialDraft.person.contacts ?? {}));
-  const [newTag, setNewTag] = React.useState<{ name: string; kind: TagKind }>({ name: "", kind: "skill" });
+  const [newTag, setNewTag] = React.useState("");
   const [busy, setBusy] = React.useState<"apply" | "discard" | "reparse" | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
 
   // Reset the editable copy when the parent hands over a new draft (reparse).
   const [seenDraft, setSeenDraft] = React.useState(initialDraft);
   if (seenDraft !== initialDraft) {
+    const next = splitDraftTags(initialDraft);
     setSeenDraft(initialDraft);
-    setDraft(initialDraft);
+    setDraft(next.draft);
+    setCircle(next.circle);
     setContacts(toRows(initialDraft.person.contacts ?? {}));
     setMessage(null);
   }
@@ -125,14 +139,10 @@ export function DraftCard({
   };
 
   const addTag = () => {
-    const name = newTag.name.trim();
+    const name = newTag.trim();
     if (!name) return;
-    setDraft((d) =>
-      d.tags.some((t) => t.name === name && t.kind === newTag.kind)
-        ? d
-        : { ...d, tags: [...d.tags, { name, kind: newTag.kind }] },
-    );
-    setNewTag((t) => ({ ...t, name: "" }));
+    setDraft((d) => (d.tags.some((t) => t.name === name) ? d : { ...d, tags: [...d.tags, { name, kind: "skill" }] }));
+    setNewTag("");
   };
 
   const updateEvent = (index: number, patch: Partial<DraftEvent>) =>
@@ -141,7 +151,10 @@ export function DraftCard({
   const buildDraft = (): Draft => ({
     ...draft,
     person: { ...draft.person, contacts: toRecord(contacts) },
-    tags: draft.tags.filter((t) => t.name.trim()),
+    tags: [
+      ...draft.tags.filter((t) => t.kind !== "circle" && t.name.trim()),
+      ...(circle.trim() ? [{ name: circle.trim(), kind: "circle" as const }] : []),
+    ],
     events: draft.events.filter((e) => e.content.trim()),
   });
 
@@ -370,29 +383,19 @@ export function DraftCard({
       </div>
 
       <div className="space-y-2">
-        <SectionTitle>标签{isUpdate ? "（追加到已有标签）" : ""}</SectionTitle>
+        <SectionTitle>圈子和标签{isUpdate ? "（标签会追加）" : ""}</SectionTitle>
+        <Input value={circle} onChange={(e) => setCircle(e.target.value)} placeholder="圈子，只填一个，例如 球友" />
         <div className="flex flex-wrap gap-1.5">
-          {draft.tags.map((tag: DraftTag, i) => (
-            <TagChip key={`${tag.kind}-${tag.name}-${i}`} name={tag.name} kind={tag.kind} onRemove={() => setDraft((d) => ({ ...d, tags: d.tags.filter((_, j) => j !== i) }))} />
+          {draft.tags.filter((tag) => tag.kind !== "circle").map((tag: DraftTag, i) => (
+            <TagChip key={`${tag.kind}-${tag.name}-${i}`} name={tag.name} kind={tag.kind} onRemove={() => setDraft((d) => ({ ...d, tags: d.tags.filter((item) => item !== tag) }))} />
           ))}
-          {draft.tags.length === 0 ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
+          {draft.tags.every((tag) => tag.kind === "circle") ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
         </div>
         <div className="flex items-center gap-2">
-          <NativeSelect
-            className="w-24 shrink-0"
-            value={newTag.kind}
-            onChange={(e) => setNewTag((t) => ({ ...t, kind: e.target.value as TagKind }))}
-          >
-            {TAG_KIND_VALUES.map((k) => (
-              <option key={k} value={k}>
-                {TAG_KIND_LABEL[k]}
-              </option>
-            ))}
-          </NativeSelect>
           <Input
-            value={newTag.name}
-            placeholder="羽毛球 / 前同事"
-            onChange={(e) => setNewTag((t) => ({ ...t, name: e.target.value }))}
+            value={newTag}
+            placeholder="标签，例如 羽毛球"
+            onChange={(e) => setNewTag(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
