@@ -26,16 +26,50 @@ function Field({ label, children, className }: { label: string; children: React.
   );
 }
 
+export function DeletePersonButton({ personId, personName }: { personId: string; personName: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-muted-foreground hover:text-destructive"
+      disabled={busy}
+      onClick={async () => {
+        if (!window.confirm(`确定删除「${personName}」？相关标签关联、事件和向量都会一起删除。`)) return;
+        setBusy(true);
+        try {
+          await apiFetch(`/api/v1/people/${personId}`, { method: "DELETE" });
+          router.push("/people");
+          router.refresh();
+        } catch (err) {
+          window.alert(errorMessage(err));
+          setBusy(false);
+        }
+      }}
+    >
+      <Trash2 /> 删除
+    </Button>
+  );
+}
+
 /** Manual editing of every field (design.md §17: works without the LLM). */
 export function PersonEditForm({
   person,
   vocabulary,
   initialOpen = false,
+  embedded = false,
+  onDone,
 }: {
   person: ApiPerson;
   /** Circles and tags defined in settings. */
   vocabulary: TagOption[];
   initialOpen?: boolean;
+  /** Render the form itself, without the closed-state 编辑 button. */
+  embedded?: boolean;
+  /** Called after save, cancel, or when the form should leave edit mode. */
+  onDone?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(initialOpen);
@@ -130,6 +164,7 @@ export function PersonEditForm({
         },
       });
       setOpen(false);
+      onDone?.();
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -152,7 +187,7 @@ export function PersonEditForm({
     }
   };
 
-  if (!open) {
+  if (!embedded && !open) {
     return (
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -287,7 +322,15 @@ export function PersonEditForm({
           <Trash2 /> 删除这个人
         </Button>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setOpen(false);
+              onDone?.();
+            }}
+            disabled={busy}
+          >
             取消
           </Button>
           <Button type="button" onClick={save} disabled={busy}>

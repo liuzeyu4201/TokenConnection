@@ -26,16 +26,23 @@ const KIND_DOT: Record<EventKind, string> = {
 export function Timeline({
   personId,
   events,
+  canDelete = false,
 }: {
   personId: string;
   events: Array<ApiEvent & { readonly?: boolean }>;
+  /** Delete buttons only appear in the profile's edit mode. */
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   if (events.length === 0) {
-    return <EmptyState>还没有事件。用上面的输入框追加一句，例如「上周一起打了球」。</EmptyState>;
+    return (
+      <EmptyState>
+        {canDelete ? "还没有事件。用上面的输入框追加一句，例如「上周一起打了球」。" : "还没有事件。"}
+      </EmptyState>
+    );
   }
 
   const remove = async (event: ApiEvent) => {
@@ -67,7 +74,7 @@ export function Timeline({
                 </div>
                 <p className="mt-0.5 text-sm leading-relaxed">{event.content}</p>
               </div>
-              {event.readonly ? null : (
+              {canDelete && !event.readonly ? (
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -78,7 +85,7 @@ export function Timeline({
                 >
                   <Trash2 />
                 </Button>
-              )}
+              ) : null}
             </div>
           </li>
         ))}
