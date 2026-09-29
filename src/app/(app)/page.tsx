@@ -6,17 +6,15 @@ import { PersonCard } from "@/components/person-card";
 import { ReminderList } from "@/components/reminder-list";
 import { UniversalInput } from "@/components/universal-input";
 import { listInbox } from "@/lib/services/inbox";
-import { countPeople, listRecentlyAdded, listRecentlyContacted } from "@/lib/services/people";
+import { listRecentlyContacted } from "@/lib/services/people";
 import { listReminders } from "@/lib/services/reminders";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [pending, recentlyAdded, recentlyContacted, total, reminders] = await Promise.all([
+  const [pending, recentExchanges, reminders] = await Promise.all([
     listInbox({ status: "pending", limit: 5 }),
-    listRecentlyAdded(6),
     listRecentlyContacted(6),
-    countPeople(),
     listReminders(),
   ]);
 
@@ -43,44 +41,33 @@ export default async function HomePage() {
         <section className="space-y-2">
           <h2 className="flex items-baseline justify-between text-sm font-semibold">
             该联系了
-            <Link href="/reminders" className="text-xs font-normal text-muted-foreground hover:text-foreground">
-              共 {reminders.length} 人 →
+            <Link href="/reminders" className="text-sm font-semibold hover:underline">
+              查看全部 →
             </Link>
           </h2>
-          <ReminderList items={reminders.slice(0, 5)} compact />
+          <ReminderList items={reminders.slice(0, 5)} />
         </section>
       ) : null}
 
       <section className="space-y-2">
         <h2 className="flex items-baseline justify-between text-sm font-semibold">
-          最近添加
-          <Link href="/people" className="text-xs font-normal text-muted-foreground hover:text-foreground">
-            全部 {total} 人 →
-          </Link>
+          最近交流
+            <Link href="/people" className="text-sm font-semibold hover:underline">
+              查看全部 →
+            </Link>
         </h2>
-        {recentlyAdded.length === 0 ? (
+        {recentExchanges.length === 0 ? (
           <EmptyState>
-            还没有人。在上面输入一句话记下第一个人，或运行 <code className="rounded bg-muted px-1">pnpm db:seed</code> 填充示例数据。
+            还没有交流记录。在上面输入一句话记下第一个人，或运行 <code className="rounded bg-muted px-1">pnpm db:seed</code> 填充示例数据。
           </EmptyState>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
-            {recentlyAdded.map((person) => (
+            {recentExchanges.map((person) => (
               <PersonCard key={person.id} person={person} />
             ))}
           </div>
         )}
       </section>
-
-      {recentlyContacted.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold">最近联系</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {recentlyContacted.map((person) => (
-              <PersonCard key={person.id} person={person} />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

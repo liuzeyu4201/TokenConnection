@@ -16,7 +16,7 @@ export default async function RemindersPage() {
       <div>
         <h1 className="text-xl font-semibold">该联系了</h1>
         <p className="text-sm text-muted-foreground">
-          {thresholds.map(([tier, days]) => `${TIER_LABEL[tier]} ${days} 天`).join(" · ")}；其余两级不提醒。按逾期天数排序，追加一句后自动消失。
+          {thresholds.map(([tier, days]) => `${TIER_LABEL[tier]} ${days} 天`).join(" · ")}；其余两级不提醒。按逾期天数排序。点一个人进入详情。
         </p>
       </div>
       <ReminderList items={items.map((r) => ({ ...r, person: r.person }))} />
