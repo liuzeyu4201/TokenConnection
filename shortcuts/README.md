@@ -8,9 +8,9 @@
    - **同一 Wi-Fi**：用 `pnpm dev` 打印的 `Network: http://192.168.x.x:3000` 这个地址（也可在 Mac 的「系统设置 → Wi-Fi → 详细信息」里看 IP）。路由器重启后 IP 可能变化，建议在路由器里给 Mac 固定 IP。
    - **不在同一网络**：装 [Tailscale](https://tailscale.com/)，Mac 和 iPhone 登录同一账号，用 Mac 的 Tailscale 地址（形如 `http://100.x.y.z:3000` 或 MagicDNS 名 `http://<mac-name>.tail1234.ts.net:3000`）。
    - 上服务器后换成域名（阶段 3）。
-2. `.env` 里的 `API_TOKEN`。
+2. 网页「设置 › API 令牌」里新建一个快捷指令令牌（`tcp_` 开头）。旧 `API_TOKEN` 在初始化后 90 天内仍可用。
 
-下文用 `<host>` 代表 `http://192.168.x.x:3000` 这样的地址，`<token>` 代表 `API_TOKEN`。
+下文用 `<host>` 代表 `http://192.168.x.x:3000` 这样的地址，`<token>` 代表个人访问令牌。
 
 ## 配置步骤（快捷指令 App）
 
@@ -45,7 +45,7 @@
 | 现象 | 原因与处理 |
 | --- | --- |
 | 请求超时 / 无法连接 | 手机和 Mac 不在同一网络或 IP 变了；确认 `pnpm dev` 在跑，并且是监听 `0.0.0.0`（Next 默认如此）；Mac 防火墙放行 node |
-| 返回 `{"error":{"code":"unauthorized"...}}` | 头部 `Authorization` 写错，或 `.env` 里的 `API_TOKEN` 改过没重启 |
+| 返回 `unauthorized` / `token_expired` / `token_revoked` | 令牌写错、过期或已撤销 |
 | 返回 `validation_error` | 请求体不是 JSON 或 `raw_text` 为空；确认请求体类型选的是 JSON 而不是「表单」 |
 | 记录成功但草稿字段都是空的 | LLM 不可用或解析失败，inbox 里会带 `error`；回电脑用空表单手动填写即可，原文已保留在摘要里 |
 

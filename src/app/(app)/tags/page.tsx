@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 
 import { TagsManager } from "@/components/tags-manager";
+import { requireUser } from "@/lib/auth/dal";
 import { listTags } from "@/lib/services/tags";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "标签" };
 
 export default async function TagsPage() {
-  const tags = await listTags();
+  const user = await requireUser("/tags");
+  const tags = await listTags(user);
   return (
     <div className="space-y-4">
       <div>

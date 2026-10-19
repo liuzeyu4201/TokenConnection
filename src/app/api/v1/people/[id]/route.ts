@@ -6,24 +6,19 @@ import { deletePerson, getPersonDetail, updatePerson } from "@/lib/services/peop
 
 type Ctx = RouteContext<"/api/v1/people/[id]">;
 
-/** GET /api/v1/people/:id — detail with tags and recent events */
-export const GET = route(async (_request: NextRequest, ctx: Ctx) => {
+export const GET = route(async (_request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
-  const person = await getPersonDetail(requireUuid(id));
-  return json(person);
-});
+  return json(await getPersonDetail(auth, requireUuid(id)));
+}, { scope: "people:read" });
 
-/** PATCH /api/v1/people/:id */
-export const PATCH = route(async (request: NextRequest, ctx: Ctx) => {
+export const PATCH = route(async (request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
   const input = await parseBody(request, PersonUpdateSchema);
-  const person = await updatePerson(requireUuid(id), input);
-  return json(person);
-});
+  return json(await updatePerson(auth, requireUuid(id), input));
+}, { scope: "people:write" });
 
-/** DELETE /api/v1/people/:id */
-export const DELETE = route(async (_request: NextRequest, ctx: Ctx) => {
+export const DELETE = route(async (_request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
-  await deletePerson(requireUuid(id));
+  await deletePerson(auth, requireUuid(id));
   return json({ ok: true });
-});
+}, { scope: "people:write" });

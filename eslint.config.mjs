@@ -13,6 +13,18 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    files: ["src/lib/services/**/*.ts"],
+    ignores: ["src/lib/services/db-client.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "@/db", message: "服务层只能通过 withTenant 拿到数据库句柄。" }],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

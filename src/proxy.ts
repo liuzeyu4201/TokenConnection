@@ -1,46 +1,39 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { API_PREFIX, authFailureMessage, checkAuth, TOKEN_COOKIE_NAME } from "@/lib/api/auth";
+const SESSION_COOKIES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
+const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/setup", "/api/auth", "/api/v1"];
 
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+function isPublic(pathname: string) {
+  return PUBLIC.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
-/**
- * - `/api/v1/*`: require the bearer token (header) or the same token in the
- *   `tc_token` cookie (web UI). Otherwise respond 401 in the standard error
- *   shape.
- * - Pages: make sure the browser has the cookie so client components can call
- *   the API. Pages themselves are not protected in stage 1 (design.md §8).
- */
-export function proxy(request: NextRequest) {
-  const expected = process.env.API_TOKEN;
-  const { pathname } = request.nextUrl;
-
-  if (pathname.startsWith(API_PREFIX)) {
-    const result = checkAuth({
-      authorizationHeader: request.headers.get("authorization"),
-      cookieToken: request.cookies.get(TOKEN_COOKIE_NAME)?.value,
-      expectedToken: expected,
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { error: { code: "unauthorized", message: authFailureMessage(result.reason) } },
-        { status: 401, headers: { "WWW-Authenticate": "Bearer" } },
-      );
-    }
-    return NextResponse.next();
-  }
-
-  const response = NextResponse.next();
-  if (expected && request.cookies.get(TOKEN_COOKIE_NAME)?.value !== expected) {
-    response.cookies.set(TOKEN_COOKIE_NAME, expected, {
+function clearLegacy(response: NextResponse, request: NextRequest) {
+  if (request.cookies.has("tc_token")) {
+    response.cookies.set("tc_token", "", {
+      path: "/",
+      maxAge: 0,
       httpOnly: true,
       sameSite: "lax",
-      path: "/",
-      maxAge: ONE_YEAR_SECONDS,
-      secure: request.nextUrl.protocol === "https:",
     });
   }
   return response;
+}
+
+/**
+ * Optimistic gate only: a session cookie exists, or the route is public.
+ * The real check is requireUser() / getAuthContext(). Login-page redirects for
+ * an already valid session live in the page, so a stale cookie cannot loop.
+ */
+export function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  if (!isPublic(pathname) && !SESSION_COOKIES.some((name) => request.cookies.has(name))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${search}`);
+    return clearLegacy(NextResponse.redirect(url), request);
+  }
+  return clearLegacy(NextResponse.next(), request);
 }
 
 export const config = {

@@ -15,6 +15,13 @@
       "when": 1790598471632,
       "tag": "0001_map_and_geo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792423165768,
+      "tag": "0002_auth_and_owner",
+      "breakpoints": true
     }
   ]
 }

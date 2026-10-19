@@ -5,15 +5,13 @@ import { PeopleQuerySchema, PersonCreateSchema } from "@/lib/schemas/person";
 import { createPerson, listPeople } from "@/lib/services/people";
 
 /** GET /api/v1/people?tier=&tag=&location=&q=&cursor=&limit= */
-export const GET = route(async (request: NextRequest) => {
+export const GET = route(async (request: NextRequest, _ctx, auth) => {
   const query = parseQuery(request, PeopleQuerySchema);
-  const result = await listPeople(query);
-  return json(result);
-});
+  return json(await listPeople(auth, query));
+}, { scope: "people:read" });
 
 /** POST /api/v1/people */
-export const POST = route(async (request: NextRequest) => {
+export const POST = route(async (request: NextRequest, _ctx, auth) => {
   const input = await parseBody(request, PersonCreateSchema);
-  const person = await createPerson(input);
-  return json(person, { status: 201 });
-});
+  return json(await createPerson(auth, input), { status: 201 });
+}, { scope: "people:write" });

@@ -4,12 +4,7 @@ import { json, parseQuery, route } from "@/lib/api/handler";
 import { SearchQuerySchema } from "@/lib/schemas/search";
 import { searchPeople } from "@/lib/services/search";
 
-/**
- * GET /api/v1/search?q=&tier=&tag=&location=&limit=
- * → { query, hits: [{ person, score, reasons, semantic, keyword_hit }], semantic_skipped }
- */
-export const GET = route(async (request: NextRequest) => {
+export const GET = route(async (request: NextRequest, _ctx, auth) => {
   const query = parseQuery(request, SearchQuerySchema);
-  const result = await searchPeople(query);
-  return json(result);
-});
+  return json(await searchPeople(auth, query));
+}, { scope: "search:read" });

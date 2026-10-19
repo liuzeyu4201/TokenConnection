@@ -1,6 +1,6 @@
 # HTTP API
 
-前缀 `/api/v1`。全部 JSON。每个请求需要 `Authorization: Bearer <API_TOKEN>`，或浏览器里由页面种下的同源 cookie `tc_token`。
+前缀 `/api/v1`。全部 JSON。浏览器登录后用会话 cookie；程序调用用 `Authorization: Bearer tcp_…`（网页「设置 › API 令牌」创建，按 scope 限制）。旧 `API_TOKEN` 只在 `/setup` 之后 90 天内继续可用。`/api/auth/*` 是登录接口。Cookie 会话的非 GET 请求必须同源，否则返回 403 `csrf_rejected`。
 
 错误统一为 `{ "error": { "code": "...", "message": "..." } }`。
 
@@ -42,7 +42,7 @@
 ## 例子
 
 ```bash
-TOKEN=$(grep '^API_TOKEN=' .env | cut -d= -f2)
+TOKEN=tcp_...   # 网页 设置 › API 令牌 里创建，只显示一次
 curl -s -G -H "Authorization: Bearer $TOKEN" --data-urlencode "q=羽毛球教练" http://localhost:3000/api/v1/search
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"raw_text":"今天球馆认识小王，羽毛球教练，深圳，微信 wx123，人很热情","source":"shortcut"}' \

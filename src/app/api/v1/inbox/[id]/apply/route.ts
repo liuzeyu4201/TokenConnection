@@ -6,10 +6,8 @@ import { applyInbox } from "@/lib/services/inbox";
 
 type Ctx = RouteContext<"/api/v1/inbox/[id]/apply">;
 
-/** POST /api/v1/inbox/:id/apply { draft } → { inbox, person } */
-export const POST = route(async (request: NextRequest, ctx: Ctx) => {
+export const POST = route(async (request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
   const input = await parseBody(request, InboxApplySchema);
-  const result = await applyInbox(requireUuid(id), input.draft);
-  return json(result);
-});
+  return json(await applyInbox(auth, requireUuid(id), input.draft));
+}, { scope: "inbox:write" });

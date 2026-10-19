@@ -12,11 +12,11 @@ loadDotEnv();
 async function main() {
   const all = process.argv.includes("--all");
   const { and, eq, isNotNull, isNull } = await import("drizzle-orm");
-  const { closeDb, getDb } = await import("./index");
+  const { closeDb, getAdminDb } = await import("./index");
   const { people } = await import("./schema");
   const { geocode } = await import("@/lib/geo/geocode");
 
-  const db = getDb();
+  const db = getAdminDb();
   const rows = await db
     .select({ id: people.id, name: people.name, location: people.location })
     .from(people)

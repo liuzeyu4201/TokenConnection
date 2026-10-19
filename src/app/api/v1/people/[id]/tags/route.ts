@@ -6,10 +6,8 @@ import { setPersonTags } from "@/lib/services/people";
 
 type Ctx = RouteContext<"/api/v1/people/[id]/tags">;
 
-/** PUT /api/v1/people/:id/tags — replace the whole tag set */
-export const PUT = route(async (request: NextRequest, ctx: Ctx) => {
+export const PUT = route(async (request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
   const input = await parseBody(request, SetPersonTagsSchema);
-  const person = await setPersonTags(requireUuid(id), input.tags);
-  return json(person);
-});
+  return json(await setPersonTags(auth, requireUuid(id), input.tags));
+}, { scope: "people:write" });

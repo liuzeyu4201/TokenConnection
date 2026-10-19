@@ -6,17 +6,14 @@ import { deleteTag, updateTag } from "@/lib/services/tags";
 
 type Ctx = RouteContext<"/api/v1/tags/[id]">;
 
-/** PATCH /api/v1/tags/:id — rename or change kind */
-export const PATCH = route(async (request: NextRequest, ctx: Ctx) => {
+export const PATCH = route(async (request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
   const input = await parseBody(request, TagUpdateSchema);
-  const tag = await updateTag(requireUuid(id), input);
-  return json(tag);
-});
+  return json(await updateTag(auth, requireUuid(id), input));
+}, { scope: "tags:write" });
 
-/** DELETE /api/v1/tags/:id */
-export const DELETE = route(async (_request: NextRequest, ctx: Ctx) => {
+export const DELETE = route(async (_request: NextRequest, ctx: Ctx, auth) => {
   const { id } = await ctx.params;
-  await deleteTag(requireUuid(id));
+  await deleteTag(auth, requireUuid(id));
   return json({ ok: true });
-});
+}, { scope: "tags:write" });

@@ -245,8 +245,8 @@ const SEED_PEOPLE: SeedPerson[] = [
 async function main() {
   const reset = process.argv.includes("--reset");
 
-  const { closeDb, getDb } = await import("./index");
-  const { events, inbox, people, peopleEmbeddings, peopleTags, tags } = await import("./schema");
+  const { closeDb, getAdminDb } = await import("./index");
+  const { events, inbox, people, peopleEmbeddings, peopleTags, tags, users } = await import("./schema");
   const { sql } = await import("drizzle-orm");
   const { replacePersonTags, upsertTags } = await import("@/lib/services/tags");
   const { recomputeLastContact } = await import("@/lib/services/events");
@@ -254,7 +254,24 @@ async function main() {
   const { embedPerson } = await import("@/lib/llm/embed");
   const { getEmbeddingModelName, getLlmProviderKind } = await import("@/lib/llm/provider");
 
-  const db = getDb();
+  const db = getAdminDb();
+  const ownerFlag = process.argv.indexOf("--owner");
+  const ownerEmail = ownerFlag >= 0 ? process.argv[ownerFlag + 1]?.toLowerCase() : undefined;
+  const ownerRows = ownerEmail
+    ? await db.select().from(users).where(sql`lower(${users.email}) = ${ownerEmail}`).limit(1)
+    : await db.select().from(users).limit(1);
+  const owner = ownerRows[0];
+  if (!owner) {
+    console.error("没有可用用户。请先打开 /setup 创建管理员，或 pnpm db:seed --owner you@example.com");
+    await closeDb();
+    process.exit(1);
+  }
+  const ctx = {
+    userId: owner.id,
+    role: owner.role === "admin" ? "admin" as const : "member" as const,
+    via: "session" as const,
+  };
+  console.log(`数据归 ${owner.email}（${ctx.role}）`);
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(people);
 
   if (count > 0 && !reset) {
@@ -271,7 +288,7 @@ async function main() {
 
   console.log(`LLM provider: ${getLlmProviderKind()}（embedding 模型 ${getEmbeddingModelName()}）`);
 
-  await upsertTags(SEED_PEOPLE.flatMap((person) => person.tags.map(([name, kind]) => ({ name, kind }))));
+  await upsertTags(ctx, SEED_PEOPLE.flatMap((person) => person.tags.map(([name, kind]) => ({ name, kind }))), db);
 
   const ids: string[] = [];
   for (const person of SEED_PEOPLE) {
@@ -279,6 +296,7 @@ async function main() {
       const [row] = await tx
         .insert(people)
         .values({
+          owner_id: ctx.userId,
           name: person.name,
           gender: person.gender,
           tier: person.tier,
@@ -293,6 +311,7 @@ async function main() {
         })
         .returning({ id: people.id });
       await replacePersonTags(
+        ctx,
         row.id,
         person.tags.map(([name, kind]) => ({ name, kind })),
         tx,
@@ -300,13 +319,14 @@ async function main() {
       if (person.events.length > 0) {
         await tx.insert(events).values(
           person.events.map(([happened_at, kind, content]) => ({
+            owner_id: ctx.userId,
             person_id: row.id,
             kind,
             content,
             happened_at,
           })),
         );
-        await recomputeLastContact(row.id, tx);
+        await recomputeLastContact(ctx, row.id, tx);
       }
       return row.id;
     });
@@ -318,7 +338,7 @@ async function main() {
   let failed = 0;
   for (const id of ids) {
     try {
-      await embedPerson(id);
+      await embedPerson(ctx, id, { quota: false });
     } catch (error) {
       failed++;
       console.error(`  embedding 失败 ${id}:`, error instanceof Error ? error.message : error);

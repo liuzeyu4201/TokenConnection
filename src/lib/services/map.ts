@@ -1,18 +1,13 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
-import { db } from "@/db";
 import { people, type PersonRow, type TagRow } from "@/db/schema";
+import type { ServiceContext } from "@/lib/auth/context";
+import { withTenant } from "@/lib/auth/tenant";
 import { geocode } from "@/lib/geo/geocode";
 import { resolvePrimaryCircle, UNCATEGORIZED_SECTOR } from "@/lib/map/primary-circle";
 import { layoutRadial, type RadialLayout } from "@/lib/map/radial";
 
 import { attachTags, type PersonWithTags } from "./people";
-
-/**
- * Data for the two maps (design.md §14.1 / §14.2). Pages and /api/v1/map/*
- * share these functions. Contacts and impressions are deliberately omitted —
- * the map only needs what is drawn on it.
- */
 
 export type MapPerson = {
   id: string;
@@ -22,7 +17,6 @@ export type MapPerson = {
   summary: string | null;
   last_contact_at: string | null;
   tags: TagRow[];
-  /** Resolved sector (primary circle name or 未分类). */
   sector: string;
   primary_circle_tag_id: string | null;
 };
@@ -30,7 +24,6 @@ export type MapPerson = {
 export type RadialMapData = {
   people: MapPerson[];
   layout: RadialLayout;
-  /** Distinct skill tag names and locations for the filter bar. */
   skills: string[];
   locations: string[];
 };
@@ -39,16 +32,13 @@ export type GeoCluster = {
   key: string;
   lat: number;
   lng: number;
-  /** Best label: geocoded city name, else the most common location text. */
   label: string;
   people: MapPerson[];
 };
 
 export type GeoMapData = {
   clusters: GeoCluster[];
-  /** location set but no coordinates: needs a fix. */
   unlocated: Array<Pick<MapPerson, "id" | "name" | "tier" | "location">>;
-  /** People without any location text (not counted as "unlocated"). */
   no_location_count: number;
   located_count: number;
   skills: string[];
@@ -69,9 +59,11 @@ function toMapPerson(person: PersonWithTags): MapPerson {
   };
 }
 
-async function loadAll(): Promise<PersonWithTags[]> {
-  const rows = await db.select().from(people).orderBy(desc(people.updated_at));
-  return attachTags(rows);
+async function loadAll(ctx: ServiceContext): Promise<PersonWithTags[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx.select().from(people).where(eq(people.owner_id, ctx.userId)).orderBy(desc(people.updated_at));
+    return attachTags(rows, tx);
+  });
 }
 
 function distinctSkills(list: MapPerson[]): string[] {
@@ -80,8 +72,8 @@ function distinctSkills(list: MapPerson[]): string[] {
   return [...set].sort((a, b) => a.localeCompare(b, "zh-CN"));
 }
 
-export async function getRadialMapData(): Promise<RadialMapData> {
-  const all = (await loadAll()).map(toMapPerson);
+export async function getRadialMapData(ctx: ServiceContext): Promise<RadialMapData> {
+  const all = (await loadAll(ctx)).map(toMapPerson);
   const layout = layoutRadial(
     all.map((p) => ({ id: p.id, tier: p.tier, sector: p.sector, last_contact_at: p.last_contact_at })),
   );
@@ -91,13 +83,12 @@ export async function getRadialMapData(): Promise<RadialMapData> {
   return { people: all, layout, skills: distinctSkills(all), locations };
 }
 
-/** Cluster key: ~1 km cells so everyone geocoded to the same city collapses into one bubble. */
 export function clusterKey(lat: number, lng: number): string {
   return `${lat.toFixed(2)},${lng.toFixed(2)}`;
 }
 
-export async function getGeoMapData(): Promise<GeoMapData> {
-  const rows = await loadAll();
+export async function getGeoMapData(ctx: ServiceContext): Promise<GeoMapData> {
+  const rows = await loadAll(ctx);
   const all = rows.map((r) => ({ row: r, person: toMapPerson(r) }));
 
   type WorkingCluster = GeoCluster & { labels: Map<string, number> };

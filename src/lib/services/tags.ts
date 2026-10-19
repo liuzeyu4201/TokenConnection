@@ -1,8 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
-import { db } from "@/db";
 import { people, peopleTags, tags, type TagRow } from "@/db/schema";
 import { badRequest, conflict, notFound } from "@/lib/api/errors";
+import type { ServiceContext } from "@/lib/auth/context";
+import { inTenant, withTenant } from "@/lib/auth/tenant";
 import type { TagKind } from "@/lib/schemas/enums";
 import type { TagInput } from "@/lib/schemas/person";
 import type { TagCreateInput, TagUpdateInput } from "@/lib/schemas/tag";
@@ -13,68 +14,81 @@ export type TagWithCount = TagRow & { people_count: number };
 
 const KIND_ORDER: Record<TagKind, number> = { skill: 0, circle: 1, other: 2 };
 
-export async function listTags(kind?: TagKind): Promise<TagWithCount[]> {
-  const rows = await db
-    .select({
-      id: tags.id,
-      name: tags.name,
-      kind: tags.kind,
-      people_count: sql<number>`(select count(*)::int from ${peopleTags} pt where pt.tag_id = ${tags.id})`,
-    })
-    .from(tags)
-    .where(kind ? eq(tags.kind, kind) : undefined)
-    .orderBy(asc(tags.kind), asc(tags.name));
-
-  return rows.sort(
-    (a, b) =>
-      KIND_ORDER[a.kind] - KIND_ORDER[b.kind] ||
-      b.people_count - a.people_count ||
-      a.name.localeCompare(b.name, "zh-CN"),
-  );
+export async function listTags(ctx: ServiceContext, kind?: TagKind): Promise<TagWithCount[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: tags.id,
+        owner_id: tags.owner_id,
+        name: tags.name,
+        kind: tags.kind,
+        people_count: sql<number>`(select count(*)::int from ${peopleTags} pt where pt.tag_id = ${tags.id})`,
+      })
+      .from(tags)
+      .where(kind ? and(eq(tags.owner_id, ctx.userId), eq(tags.kind, kind)) : eq(tags.owner_id, ctx.userId))
+      .orderBy(asc(tags.kind), asc(tags.name));
+    return rows.sort(
+      (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || b.people_count - a.people_count || a.name.localeCompare(b.name, "zh-CN"),
+    );
+  });
 }
 
-export async function getTag(id: string): Promise<TagRow> {
-  const [row] = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
-  if (!row) throw notFound("标签不存在");
-  return row;
+export async function getTag(ctx: ServiceContext, id: string, client?: DbClient): Promise<TagRow> {
+  return inTenant(ctx, client, async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(tags)
+      .where(and(eq(tags.id, id), eq(tags.owner_id, ctx.userId)))
+      .limit(1);
+    if (!row) throw notFound("标签不存在");
+    return row;
+  });
 }
 
-export async function createTag(input: TagCreateInput): Promise<TagRow> {
-  const existing = await db
-    .select()
-    .from(tags)
-    .where(and(eq(tags.name, input.name), eq(tags.kind, input.kind)))
-    .limit(1);
-  if (existing.length > 0) throw conflict("同名同类型的标签已存在");
-  const [row] = await db.insert(tags).values(input).returning();
-  return row;
+export async function createTag(ctx: ServiceContext, input: TagCreateInput): Promise<TagRow> {
+  return withTenant(ctx, async (tx) => {
+    const existing = await tx
+      .select()
+      .from(tags)
+      .where(and(eq(tags.owner_id, ctx.userId), eq(tags.name, input.name), eq(tags.kind, input.kind)))
+      .limit(1);
+    if (existing.length > 0) throw conflict("同名同类型的标签已存在");
+    const [row] = await tx.insert(tags).values({ ...input, owner_id: ctx.userId }).returning();
+    return row;
+  });
 }
 
-export async function updateTag(id: string, input: TagUpdateInput): Promise<TagRow> {
-  const current = await getTag(id);
-  const next = { name: input.name ?? current.name, kind: input.kind ?? current.kind };
-  const duplicate = await db
-    .select({ id: tags.id })
-    .from(tags)
-    .where(and(eq(tags.name, next.name), eq(tags.kind, next.kind)))
-    .limit(1);
-  if (duplicate.length > 0 && duplicate[0].id !== id) {
-    throw conflict("同名同类型的标签已存在");
-  }
-  const [row] = await db.update(tags).set(next).where(eq(tags.id, id)).returning();
-  // A tag that is no longer a circle cannot be anyone's primary circle.
-  if (current.kind === "circle" && next.kind !== "circle") {
-    await db.update(people).set({ primary_circle_tag_id: null }).where(eq(people.primary_circle_tag_id, id));
-  }
-  return row;
+export async function updateTag(ctx: ServiceContext, id: string, input: TagUpdateInput): Promise<TagRow> {
+  return withTenant(ctx, async (tx) => {
+    const current = await getTag(ctx, id, tx);
+    const next = { name: input.name ?? current.name, kind: input.kind ?? current.kind };
+    const duplicate = await tx
+      .select({ id: tags.id })
+      .from(tags)
+      .where(and(eq(tags.owner_id, ctx.userId), eq(tags.name, next.name), eq(tags.kind, next.kind)))
+      .limit(1);
+    if (duplicate.length > 0 && duplicate[0].id !== id) throw conflict("同名同类型的标签已存在");
+    const [row] = await tx.update(tags).set(next).where(and(eq(tags.id, id), eq(tags.owner_id, ctx.userId))).returning();
+    if (current.kind === "circle" && next.kind !== "circle") {
+      await tx
+        .update(people)
+        .set({ primary_circle_tag_id: null })
+        .where(and(eq(people.primary_circle_tag_id, id), eq(people.owner_id, ctx.userId)));
+    }
+    return row;
+  });
 }
 
-export async function deleteTag(id: string): Promise<void> {
-  const deleted = await db.delete(tags).where(eq(tags.id, id)).returning({ id: tags.id });
-  if (deleted.length === 0) throw notFound("标签不存在");
+export async function deleteTag(ctx: ServiceContext, id: string): Promise<void> {
+  await withTenant(ctx, async (tx) => {
+    const deleted = await tx
+      .delete(tags)
+      .where(and(eq(tags.id, id), eq(tags.owner_id, ctx.userId)))
+      .returning({ id: tags.id });
+    if (deleted.length === 0) throw notFound("标签不存在");
+  });
 }
 
-/** Deduplicate by (name, kind); case-sensitive on purpose (tags are short). */
 export function normalizeTagInputs(inputs: TagInput[]): TagInput[] {
   const seen = new Set<string>();
   const out: TagInput[] = [];
@@ -89,31 +103,24 @@ export function normalizeTagInputs(inputs: TagInput[]): TagInput[] {
   return out;
 }
 
-/** Case- and whitespace-insensitive key; Chinese names compare exactly. */
 export function tagNameKey(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-/**
- * Map requested (name, kind) pairs onto the existing vocabulary. Never inserts.
- * A circle request only matches a circle; other requests prefer the same kind,
- * then any non-circle kind, then a circle of that name (the LLM often mislabels).
- * Unknown names are dropped, or rejected when `strict` (manual edits).
- */
 export async function matchExistingTags(
+  ctx: ServiceContext,
   inputs: TagInput[],
-  client: DbClient = db,
+  client: DbClient,
   options: { strict?: boolean } = {},
 ): Promise<TagRow[]> {
   const wanted = normalizeTagInputs(inputs);
   if (wanted.length === 0) return [];
-  const vocabulary = await client.select().from(tags);
+  const vocabulary = await client.select().from(tags).where(eq(tags.owner_id, ctx.userId));
   const byKey = new Map<string, TagRow[]>();
   for (const row of vocabulary) {
     const key = tagNameKey(row.name);
     byKey.set(key, [...(byKey.get(key) ?? []), row]);
   }
-
   const out: TagRow[] = [];
   const missing: TagInput[] = [];
   for (const input of wanted) {
@@ -135,9 +142,12 @@ export async function matchExistingTags(
   return out;
 }
 
-/** Existing (name, kind) pairs for draft tags; unknown ones are dropped, at most one circle. */
-export async function canonicalizeTagInputs(inputs: TagInput[], client: DbClient = db): Promise<TagInput[]> {
-  return keepOneCircle(await matchExistingTags(inputs, client)).map((t) => ({ name: t.name, kind: t.kind }));
+export async function canonicalizeTagInputs(
+  ctx: ServiceContext,
+  inputs: TagInput[],
+  client: DbClient,
+): Promise<TagInput[]> {
+  return keepOneCircle(await matchExistingTags(ctx, inputs, client)).map((t) => ({ name: t.name, kind: t.kind }));
 }
 
 function keepOneCircle(rows: TagRow[]): TagRow[] {
@@ -145,70 +155,55 @@ function keepOneCircle(rows: TagRow[]): TagRow[] {
   return rows.filter((t) => t.kind !== "circle" || t === circle);
 }
 
-/**
- * Insert missing tags and return rows for every requested (name, kind).
- * Only for defining the vocabulary (seed, maintenance); assigning tags to a
- * person goes through `matchExistingTags`.
- */
-export async function upsertTags(inputs: TagInput[], client: DbClient = db): Promise<TagRow[]> {
+export async function upsertTags(ctx: ServiceContext, inputs: TagInput[], client: DbClient): Promise<TagRow[]> {
   const wanted = normalizeTagInputs(inputs);
   if (wanted.length === 0) return [];
-
   await client
     .insert(tags)
-    .values(wanted)
-    .onConflictDoNothing({ target: [tags.name, tags.kind] });
-
+    .values(wanted.map((tag) => ({ ...tag, owner_id: ctx.userId })))
+    .onConflictDoNothing({ target: [tags.owner_id, tags.name, tags.kind] });
   const names = wanted.map((t) => t.name);
-  const rows = await client.select().from(tags).where(inArray(tags.name, names));
+  const rows = await client
+    .select()
+    .from(tags)
+    .where(and(eq(tags.owner_id, ctx.userId), inArray(tags.name, names)));
   const byKey = new Map(rows.map((r) => [`${r.kind}\u0000${r.name}`, r]));
-  return wanted
-    .map((t) => byKey.get(`${t.kind}\u0000${t.name}`))
-    .filter((r): r is TagRow => Boolean(r));
+  return wanted.map((t) => byKey.get(`${t.kind}\u0000${t.name}`)).filter((r): r is TagRow => Boolean(r));
 }
 
-/** Tags grouped by person id, ordered skill → circle → other. */
-export async function getTagsForPeople(
-  personIds: string[],
-  client: DbClient = db,
-): Promise<Map<string, TagRow[]>> {
+export async function getTagsForPeople(personIds: string[], client: DbClient): Promise<Map<string, TagRow[]>> {
   const result = new Map<string, TagRow[]>();
   if (personIds.length === 0) return result;
   const rows = await client
     .select({
       person_id: peopleTags.person_id,
       id: tags.id,
+      owner_id: tags.owner_id,
       name: tags.name,
       kind: tags.kind,
     })
     .from(peopleTags)
     .innerJoin(tags, eq(tags.id, peopleTags.tag_id))
     .where(inArray(peopleTags.person_id, personIds));
-
   for (const row of rows) {
     const list = result.get(row.person_id) ?? [];
-    list.push({ id: row.id, name: row.name, kind: row.kind });
+    list.push({ id: row.id, owner_id: row.owner_id, name: row.name, kind: row.kind });
     result.set(row.person_id, list);
   }
   for (const list of result.values()) {
-    list.sort(
-      (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.name.localeCompare(b.name, "zh-CN"),
-    );
+    list.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.name.localeCompare(b.name, "zh-CN"));
   }
   return result;
 }
 
-/**
- * Replace the whole tag set of one person with existing tags. The single
- * circle, if any, becomes primary.
- */
 export async function replacePersonTags(
+  ctx: ServiceContext,
   personId: string,
   inputs: TagInput[],
-  client: DbClient = db,
+  client: DbClient,
   options: { strict?: boolean } = {},
 ): Promise<TagRow[]> {
-  const matched = await matchExistingTags(inputs, client, options);
+  const matched = await matchExistingTags(ctx, inputs, client, options);
   if (options.strict && matched.filter((t) => t.kind === "circle").length > 1) {
     throw badRequest("一个人只能有一个圈子", "too_many_circles");
   }
@@ -221,22 +216,22 @@ export async function replacePersonTags(
       .onConflictDoNothing();
   }
   const circle = rows.find((t) => t.kind === "circle") ?? null;
-  await client.update(people).set({ primary_circle_tag_id: circle?.id ?? null }).where(eq(people.id, personId));
+  await client
+    .update(people)
+    .set({ primary_circle_tag_id: circle?.id ?? null })
+    .where(and(eq(people.id, personId), eq(people.owner_id, ctx.userId)));
   return rows;
 }
 
-/**
- * Add existing tags to a person without removing current ones. Unknown names
- * are dropped; a circle is ignored when the person already has one.
- */
 export async function addPersonTags(
+  ctx: ServiceContext,
   personId: string,
   inputs: TagInput[],
-  client: DbClient = db,
+  client: DbClient,
 ): Promise<void> {
   const existing = await getTagsForPeople([personId], client);
   const hasCircle = (existing.get(personId) ?? []).some((t) => t.kind === "circle");
-  const matched = keepOneCircle(await matchExistingTags(inputs, client));
+  const matched = keepOneCircle(await matchExistingTags(ctx, inputs, client));
   const rows = hasCircle ? matched.filter((t) => t.kind !== "circle") : matched;
   if (rows.length === 0) return;
   await client
@@ -245,50 +240,66 @@ export async function addPersonTags(
     .onConflictDoNothing();
   if (!hasCircle) {
     const circle = rows.find((t) => t.kind === "circle");
-    if (circle) await client.update(people).set({ primary_circle_tag_id: circle.id }).where(eq(people.id, personId));
+    if (circle) {
+      await client
+        .update(people)
+        .set({ primary_circle_tag_id: circle.id })
+        .where(and(eq(people.id, personId), eq(people.owner_id, ctx.userId)));
+    }
   }
 }
 
-/**
- * Existing people may have several circle tags. Keep one as the map sector
- * (the primary, else the first by name) and turn the others into ordinary tags.
- */
-export async function collapseExtraCircles(): Promise<number> {
-  const everyone = await db.select({ id: people.id, primary: people.primary_circle_tag_id }).from(people);
-  const tagMap = await getTagsForPeople(everyone.map((p) => p.id));
-  let changed = 0;
-  for (const person of everyone) {
-    const circles = (tagMap.get(person.id) ?? []).filter((t) => t.kind === "circle");
-    if (circles.length === 0) continue;
-    const keep =
-      circles.find((t) => t.id === person.primary) ??
-      circles.slice().sort((a, b) => a.name.localeCompare(b.name, "zh-CN"))[0];
-    const extra = circles.filter((t) => t.id !== keep.id);
-    if (extra.length > 0) {
-      const ordinary = await upsertTags(extra.map((t) => ({ name: t.name, kind: "other" as const })));
-      if (ordinary.length > 0) {
-        await db
-          .insert(peopleTags)
-          .values(ordinary.map((t) => ({ person_id: person.id, tag_id: t.id })))
-          .onConflictDoNothing();
-      }
-      await db
-        .delete(peopleTags)
-        .where(
-          and(
-            eq(peopleTags.person_id, person.id),
-            inArray(
-              peopleTags.tag_id,
-              extra.map((t) => t.id),
-            ),
-          ),
+export async function collapseExtraCircles(ctx: ServiceContext): Promise<number> {
+  return withTenant(ctx, async (tx) => {
+    const everyone = await tx
+      .select({ id: people.id, primary: people.primary_circle_tag_id })
+      .from(people)
+      .where(eq(people.owner_id, ctx.userId));
+    const tagMap = await getTagsForPeople(
+      everyone.map((p) => p.id),
+      tx,
+    );
+    let changed = 0;
+    for (const person of everyone) {
+      const circles = (tagMap.get(person.id) ?? []).filter((t) => t.kind === "circle");
+      if (circles.length === 0) continue;
+      const keep =
+        circles.find((t) => t.id === person.primary) ??
+        circles.slice().sort((a, b) => a.name.localeCompare(b.name, "zh-CN"))[0];
+      const extra = circles.filter((t) => t.id !== keep.id);
+      if (extra.length > 0) {
+        const ordinary = await upsertTags(
+          ctx,
+          extra.map((t) => ({ name: t.name, kind: "other" as const })),
+          tx,
         );
-      changed += 1;
+        if (ordinary.length > 0) {
+          await tx
+            .insert(peopleTags)
+            .values(ordinary.map((t) => ({ person_id: person.id, tag_id: t.id })))
+            .onConflictDoNothing();
+        }
+        await tx
+          .delete(peopleTags)
+          .where(
+            and(
+              eq(peopleTags.person_id, person.id),
+              inArray(
+                peopleTags.tag_id,
+                extra.map((t) => t.id),
+              ),
+            ),
+          );
+        changed += 1;
+      }
+      if (person.primary !== keep.id) {
+        await tx
+          .update(people)
+          .set({ primary_circle_tag_id: keep.id })
+          .where(and(eq(people.id, person.id), eq(people.owner_id, ctx.userId)));
+        changed += 1;
+      }
     }
-    if (person.primary !== keep.id) {
-      await db.update(people).set({ primary_circle_tag_id: keep.id }).where(eq(people.id, person.id));
-      changed += 1;
-    }
-  }
-  return changed;
+    return changed;
+  });
 }

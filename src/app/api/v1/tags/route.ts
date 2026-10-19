@@ -4,16 +4,12 @@ import { json, parseBody, parseQuery, route } from "@/lib/api/handler";
 import { TagCreateSchema, TagsQuerySchema } from "@/lib/schemas/tag";
 import { createTag, listTags } from "@/lib/services/tags";
 
-/** GET /api/v1/tags?kind= */
-export const GET = route(async (request: NextRequest) => {
+export const GET = route(async (request: NextRequest, _ctx, auth) => {
   const query = parseQuery(request, TagsQuerySchema);
-  const items = await listTags(query.kind);
-  return json({ items });
-});
+  return json({ items: await listTags(auth, query.kind) });
+}, { scope: "tags:read" });
 
-/** POST /api/v1/tags */
-export const POST = route(async (request: NextRequest) => {
+export const POST = route(async (request: NextRequest, _ctx, auth) => {
   const input = await parseBody(request, TagCreateSchema);
-  const tag = await createTag(input);
-  return json(tag, { status: 201 });
-});
+  return json(await createTag(auth, input), { status: 201 });
+}, { scope: "tags:write" });

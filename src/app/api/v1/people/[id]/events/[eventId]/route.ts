@@ -5,12 +5,8 @@ import { deleteEvent } from "@/lib/services/events";
 
 type Ctx = RouteContext<"/api/v1/people/[id]/events/[eventId]">;
 
-/**
- * DELETE /api/v1/people/:id/events/:eventId
- * Events can be deleted but never edited (decision on design.md §19 Q1).
- */
-export const DELETE = route(async (_request: NextRequest, ctx: Ctx) => {
+export const DELETE = route(async (_request: NextRequest, ctx: Ctx, auth) => {
   const { id, eventId } = await ctx.params;
-  await deleteEvent(requireUuid(id), requireUuid(eventId, "eventId"));
+  await deleteEvent(auth, requireUuid(id), requireUuid(eventId, "eventId"));
   return json({ ok: true });
-});
+}, { scope: "people:write" });

@@ -9,11 +9,6 @@ const QuerySchema = z.object({
   limit: z.preprocess((v) => (v === undefined || v === "" ? 10 : Number(v)), z.number().int().min(1).max(50)),
 });
 
-/**
- * GET /api/v1/geo/cities?q= → { match, items }
- * `match` is what geocode() would resolve `q` to (or null); `items` are cities
- * whose names contain `q`, for the "pick a city" UI. Fully offline.
- */
 export const GET = route(async (request: NextRequest) => {
   const { q, limit } = parseQuery(request, QuerySchema);
   const match = geocode(q);
@@ -21,4 +16,4 @@ export const GET = route(async (request: NextRequest) => {
     match: match ? { name: match.city.name, lat: match.lat, lng: match.lng, how: match.how } : null,
     items: searchCities(q, limit).map((c) => ({ name: c.name, en: c.en, country: c.country, lat: c.lat, lng: c.lng })),
   });
-});
+}, { scope: "people:read" });

@@ -14,6 +14,7 @@ import { contactLabel, formatDate, formatDay, formatRelative } from "@/lib/forma
 import { ApiError } from "@/lib/api/errors";
 import { GENDER_LABEL } from "@/lib/schemas/enums";
 import type { ApiEvent, ApiTag } from "@/lib/types";
+import { requireUser } from "@/lib/auth/dal";
 import { getPersonDetail, type PersonDetail } from "@/lib/services/people";
 import { listTags } from "@/lib/services/tags";
 
@@ -24,7 +25,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 async function loadPerson(id: string): Promise<PersonDetail | null> {
   if (!UUID_RE.test(id)) return null;
   try {
-    return await getPersonDetail(id);
+    return await getPersonDetail(await requireUser(`/people/${id}`), id);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;
@@ -69,7 +70,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const person = await loadPerson(id);
   if (!person) notFound();
 
-  const vocabulary: ApiTag[] = (await listTags()).map(({ id, name, kind }) => ({ id, name, kind }));
+  const vocabulary: ApiTag[] = (await listTags(await requireUser(`/people/${id}`))).map(({ id, name, kind }) => ({ id, name, kind }));
   const contacts = Object.entries(person.contacts);
   const events = timelineEvents(person);
   const circle = resolvePrimaryCircle(person.primary_circle_tag_id, person.tags);

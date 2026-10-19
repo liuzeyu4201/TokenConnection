@@ -1,7 +1,7 @@
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { getDatabaseUrl } from "@/lib/env";
+import { getAdminDatabaseUrl, getDatabaseUrl } from "@/lib/env";
 
 import * as schema from "./schema";
 
@@ -13,6 +13,8 @@ export type Db = PostgresJsDatabase<typeof schema>;
 const globalForDb = globalThis as unknown as {
   __tokenconnectionSql?: ReturnType<typeof postgres>;
   __tokenconnectionDb?: Db;
+  __tokenconnectionAdminSql?: ReturnType<typeof postgres>;
+  __tokenconnectionAdminDb?: Db;
 };
 
 export function getSql(): ReturnType<typeof postgres> {
@@ -43,12 +45,36 @@ export const db: Db = new Proxy({} as Db, {
   },
 });
 
+/** Owner / superuser pool for migrations, seed and reembed. Falls back to DATABASE_URL. */
+export function getAdminSql(): ReturnType<typeof postgres> {
+  if (!globalForDb.__tokenconnectionAdminSql) {
+    globalForDb.__tokenconnectionAdminSql = postgres(getAdminDatabaseUrl(), {
+      max: 5,
+      idle_timeout: 30,
+      onnotice: () => {},
+    });
+  }
+  return globalForDb.__tokenconnectionAdminSql;
+}
+
+export function getAdminDb(): Db {
+  if (!globalForDb.__tokenconnectionAdminDb) {
+    globalForDb.__tokenconnectionAdminDb = drizzle(getAdminSql(), { schema });
+  }
+  return globalForDb.__tokenconnectionAdminDb;
+}
+
 /** Close the pool (scripts). */
 export async function closeDb(): Promise<void> {
   if (globalForDb.__tokenconnectionSql) {
     await globalForDb.__tokenconnectionSql.end();
     globalForDb.__tokenconnectionSql = undefined;
     globalForDb.__tokenconnectionDb = undefined;
+  }
+  if (globalForDb.__tokenconnectionAdminSql) {
+    await globalForDb.__tokenconnectionAdminSql.end();
+    globalForDb.__tokenconnectionAdminSql = undefined;
+    globalForDb.__tokenconnectionAdminDb = undefined;
   }
 }
 

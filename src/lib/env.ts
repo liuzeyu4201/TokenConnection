@@ -85,3 +85,7 @@ export function getVisionConfig() {
     baseURL: process.env.VISION_BASE_URL || process.env.EMBEDDING_BASE_URL || DEFAULT_EMBEDDING_BASE_URL,
   };
 }
+
+export function getAdminDatabaseUrl(): string {
+  return process.env.DATABASE_ADMIN_URL || getDatabaseUrl();
+}

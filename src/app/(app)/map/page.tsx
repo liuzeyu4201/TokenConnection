@@ -5,12 +5,14 @@ import { cn } from "cn";
 import { GeoMap } from "@/components/map/geo-map";
 import { NetworkMap } from "@/components/map/network-map";
 import { TierBadge } from "@/components/tier-badge";
+import { requireUser } from "@/lib/auth/dal";
 import { getGeoMapData, getRadialMapData } from "@/lib/services/map";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "地图" };
 
 export default async function MapPage({ searchParams }: PageProps<"/map">) {
+  const user = await requireUser("/map");
   const raw = await searchParams;
   const view = (Array.isArray(raw.view) ? raw.view[0] : raw.view) === "geo" ? "geo" : "radial";
 
@@ -33,13 +35,13 @@ export default async function MapPage({ searchParams }: PageProps<"/map">) {
         </div>
       </div>
 
-      {view === "radial" ? <NetworkMap data={await getRadialMapData()} /> : <GeoSection />}
+      {view === "radial" ? <NetworkMap data={await getRadialMapData(user)} /> : <GeoSection user={user} />}
     </div>
   );
 }
 
-async function GeoSection() {
-  const data = await getGeoMapData();
+async function GeoSection({ user }: { user: Awaited<ReturnType<typeof requireUser>> }) {
+  const data = await getGeoMapData(user);
   return (
     <div className="space-y-6">
       <GeoMap data={data} />

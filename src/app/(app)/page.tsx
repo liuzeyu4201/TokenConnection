@@ -1,11 +1,13 @@
 import { InboxPendingList } from "@/components/inbox-pending-list";
 import { UniversalInput } from "@/components/universal-input";
+import { requireUser } from "@/lib/auth/dal";
 import { listInbox } from "@/lib/services/inbox";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const pending = await listInbox({ status: "pending", limit: 5 });
+  const user = await requireUser("/");
+  const pending = await listInbox(user, { status: "pending", limit: 5 });
 
   return (
     <div className="space-y-8">

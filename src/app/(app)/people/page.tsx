@@ -7,6 +7,7 @@ import { PersonCard } from "@/components/person-card";
 import { ReminderList } from "@/components/reminder-list";
 import { Button } from "@/components/ui/button";
 import { PeopleQuerySchema } from "@/lib/schemas/person";
+import { requireUser } from "@/lib/auth/dal";
 import { listPeoplePage } from "@/lib/services/people";
 import { listReminders } from "@/lib/services/reminders";
 import { listTags } from "@/lib/services/tags";
@@ -38,6 +39,7 @@ function pageWindow(current: number, count: number): (number | null)[] {
 }
 
 export default async function PeoplePage({ searchParams }: PageProps<"/people">) {
+  const user = await requireUser("/people");
   const raw = await searchParams;
   const params = {
     tier: first(raw.tier),
@@ -49,9 +51,9 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
   const query = parsed.success ? parsed.data : PeopleQuerySchema.parse({});
 
   const [{ items, page, pageCount }, tags, reminders] = await Promise.all([
-    listPeoplePage(query, parsePage(first(raw.page)), PAGE_SIZE),
-    listTags(),
-    listReminders(),
+    listPeoplePage(user, query, parsePage(first(raw.page)), PAGE_SIZE),
+    listTags(user),
+    listReminders(user),
   ]);
 
   const filterParams = {

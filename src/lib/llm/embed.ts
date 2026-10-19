@@ -1,8 +1,12 @@
 import { embed } from "ai";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
-import { db } from "@/db";
+import { getAdminDb } from "@/db";
 import { events, people, peopleEmbeddings } from "@/db/schema";
+import type { ServiceContext } from "@/lib/auth/context";
+import { getPrivacySettings } from "@/lib/auth/settings";
+import { withTenant } from "@/lib/auth/tenant";
+import { consumeQuota } from "@/lib/auth/usage";
 import { EMBEDDING_DIM } from "@/lib/env";
 
 import { mockEmbed } from "./mock";
@@ -14,17 +18,11 @@ export { buildPersonEmbeddingText, EMBED_RECENT_EVENTS };
 
 export const EMBED_TIMEOUT_MS = 15_000;
 
-/**
- * Qwen3-Embedding models are instruction-tuned: the *query* side carries a task
- * instruction, documents are embedded as-is. On the 14-person seed this lifted
- * the correct person's lead over the runner-up from +0.147 to +0.177 cosine.
- */
 export const QUERY_INSTRUCTION =
   "Instruct: 给定一个用户的找人需求，检索最能满足这个需求的人的资料\nQuery: ";
 
 export type EmbedKind = "document" | "query";
 
-/** embed(text) → number[1024] (design.md §13). */
 export async function embedText(text: string, kind: EmbedKind = "document"): Promise<number[]> {
   const trimmed = text.trim() || " ";
   if (isMockProvider()) return mockEmbed(trimmed);
@@ -39,58 +37,64 @@ export async function embedText(text: string, kind: EmbedKind = "document"): Pro
       providerOptions: { openaiCompatible: { dimensions: EMBEDDING_DIM } },
     });
     if (result.embedding.length !== EMBEDDING_DIM) {
-      throw new EmbeddingError(
-        `Embedding 维度为 ${result.embedding.length}，期望 ${EMBEDDING_DIM}`,
-      );
+      throw new EmbeddingError(`Embedding 维度为 ${result.embedding.length}，期望 ${EMBEDDING_DIM}`);
     }
     return result.embedding;
   } catch (error) {
     if (error instanceof EmbeddingError) throw error;
-    throw new EmbeddingError(
-      error instanceof Error ? error.message : "embedding 请求失败",
-      { cause: error },
-    );
+    throw new EmbeddingError(error instanceof Error ? error.message : "embedding 请求失败", { cause: error });
   }
 }
 
-/**
- * embedPerson(personId): build the template text, embed it and upsert
- * people_embeddings. Throws on failure.
- */
-export async function embedPerson(personId: string): Promise<void> {
-  const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
-  if (!person) return;
-
-  // Lazy import keeps llm/ free of a static dependency on services/.
-  const { getTagsForPeople } = await import("@/lib/services/tags");
-  const tagMap = await getTagsForPeople([personId]);
-  const recentEvents = await db
-    .select({ content: events.content, happened_at: events.happened_at })
-    .from(events)
-    .where(eq(events.person_id, personId))
-    .orderBy(desc(events.happened_at), desc(events.created_at))
-    .limit(EMBED_RECENT_EVENTS);
-
-  const sourceText = buildPersonEmbeddingText(person, tagMap.get(personId) ?? [], recentEvents);
-  const vector = await embedText(sourceText);
-  const model = getEmbeddingModelName();
-
-  await db
-    .insert(peopleEmbeddings)
-    .values({ person_id: personId, model, embedding: vector, source_text: sourceText })
-    .onConflictDoUpdate({
-      target: peopleEmbeddings.person_id,
-      set: { model, embedding: vector, source_text: sourceText, updated_at: new Date() },
-    });
+async function loadEmbeddingSource(ctx: ServiceContext, personId: string): Promise<string | null> {
+  return withTenant(ctx, async (tx) => {
+    const [person] = await tx
+      .select()
+      .from(people)
+      .where(and(eq(people.id, personId), eq(people.owner_id, ctx.userId)))
+      .limit(1);
+    if (!person) return null;
+    const { getTagsForPeople } = await import("@/lib/services/tags");
+    const tagMap = await getTagsForPeople([personId], tx);
+    const recentEvents = await tx
+      .select({ content: events.content, happened_at: events.happened_at })
+      .from(events)
+      .where(and(eq(events.person_id, personId), eq(events.owner_id, ctx.userId)))
+      .orderBy(desc(events.happened_at), desc(events.created_at))
+      .limit(EMBED_RECENT_EVENTS);
+    return buildPersonEmbeddingText(person, tagMap.get(personId) ?? [], recentEvents);
+  });
 }
 
-/**
- * Safe wrapper used after writes: an embedding failure must never block
- * recording a person (design.md §9.1). Errors are logged and swallowed.
- */
-export async function refreshPersonEmbedding(personId: string): Promise<boolean> {
+export async function embedPerson(
+  ctx: ServiceContext,
+  personId: string,
+  options: { quota?: boolean } = {},
+): Promise<void> {
+  if (options.quota !== false) {
+    const settings = await getPrivacySettings(ctx.userId);
+    if (!settings.llm_enabled) return;
+    const quota = await consumeQuota(ctx.userId, "embed");
+    if (!quota.ok) return;
+  }
+  const sourceText = await loadEmbeddingSource(ctx, personId);
+  if (!sourceText) return;
+  const vector = await embedText(sourceText);
+  const model = getEmbeddingModelName();
+  await withTenant(ctx, async (tx) => {
+    await tx
+      .insert(peopleEmbeddings)
+      .values({ person_id: personId, owner_id: ctx.userId, model, embedding: vector, source_text: sourceText })
+      .onConflictDoUpdate({
+        target: peopleEmbeddings.person_id,
+        set: { owner_id: ctx.userId, model, embedding: vector, source_text: sourceText, updated_at: new Date() },
+      });
+  });
+}
+
+export async function refreshPersonEmbedding(ctx: ServiceContext, personId: string): Promise<boolean> {
   try {
-    await embedPerson(personId);
+    await embedPerson(ctx, personId);
     return true;
   } catch (error) {
     console.error(`[embed] failed to refresh embedding for ${personId}:`, error);
@@ -98,12 +102,13 @@ export async function refreshPersonEmbedding(personId: string): Promise<boolean>
   }
 }
 
-/** Recompute every person's vector, e.g. after switching embedding models. */
+/** Maintenance: walk every owner using the admin connection, then embed as that user. */
 export async function reembedAllPeople(): Promise<{ total: number; failed: string[] }> {
-  const rows = await db.select({ id: people.id }).from(people);
+  const admin = getAdminDb();
+  const rows = await admin.select({ id: people.id, owner_id: people.owner_id }).from(people);
   const failed: string[] = [];
   for (const row of rows) {
-    const ok = await refreshPersonEmbedding(row.id);
+    const ok = await refreshPersonEmbedding({ userId: row.owner_id, role: "admin", via: "session" }, row.id);
     if (!ok) failed.push(row.id);
   }
   return { total: rows.length, failed };

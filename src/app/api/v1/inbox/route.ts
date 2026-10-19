@@ -7,11 +7,11 @@ import { InboxCreateSchema, InboxImageCreateSchema, InboxQuerySchema } from "@/l
 import { createAndParseInbox, listInbox } from "@/lib/services/inbox";
 
 /** GET /api/v1/inbox?status=pending */
-export const GET = route(async (request: NextRequest) => {
+export const GET = route(async (request: NextRequest, _ctx, auth) => {
   const query = parseQuery(request, InboxQuerySchema);
-  const items = await listInbox(query);
+  const items = await listInbox(auth, query);
   return json({ items });
-});
+}, { scope: "inbox:read" });
 
 async function readImage(request: NextRequest): Promise<{ input: ReturnType<typeof InboxImageCreateSchema.parse>; image?: ImagePayload }> {
   const form = await request.formData();
@@ -42,11 +42,11 @@ async function readImage(request: NextRequest): Promise<{ input: ReturnType<type
  * Stores the text (plus what was read from the image), parses it immediately and returns
  * { inbox, draft, candidates, results?, error }.
  */
-export const POST = route(async (request: NextRequest) => {
+export const POST = route(async (request: NextRequest, _ctx, auth) => {
   const contentType = request.headers.get("content-type") ?? "";
   const { input, image } = contentType.includes("multipart/form-data")
     ? await readImage(request)
     : { input: await parseBody(request, InboxCreateSchema) };
-  const result = await createAndParseInbox(input, image);
+  const result = await createAndParseInbox(auth, input, image);
   return json(result, { status: 201 });
-});
+}, { scope: "inbox:write" });

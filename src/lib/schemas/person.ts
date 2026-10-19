@@ -27,9 +27,23 @@ function latLngTogether(value: { lat?: number | null; lng?: number | null }): bo
   return hasLat === hasLng;
 }
 
+/** Other names I use for this person; deduplicated, never equal to the name itself. */
+export const AliasesSchema = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null) return value;
+    if (typeof value === "string") return value.split(/[，,、\n/]/);
+    return value;
+  },
+  z
+    .array(z.string().trim().min(1).max(50))
+    .max(20)
+    .transform((list) => [...new Set(list.map((s) => s.trim()).filter(Boolean))]),
+);
+
 export const PersonCreateSchema = z
   .object({
     name: NonEmptyString.max(100),
+    aliases: AliasesSchema.optional(),
     gender: Gender.default("unknown"),
     location: NullableText.optional(),
     tier: Tier.default("known_of"),
@@ -50,6 +64,7 @@ export type PersonCreateInput = z.infer<typeof PersonCreateSchema>;
 export const PersonUpdateSchema = z
   .object({
     name: NonEmptyString.max(100),
+    aliases: AliasesSchema,
     gender: Gender,
     location: NullableText,
     tier: Tier,

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import { InboxPendingList } from "@/components/inbox-pending-list";
 import { formatRelative } from "@/lib/format";
 import { INBOX_INTENT_LABEL, INBOX_STATUS_LABEL, InboxStatus, type InboxStatus as InboxStatusType } from "@/lib/schemas/enums";
+import { requireUser } from "@/lib/auth/dal";
 import { listInbox } from "@/lib/services/inbox";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,8 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const raw = await searchParams;
   const statusParam = Array.isArray(raw.status) ? raw.status[0] : raw.status;
   const status = InboxStatus.safeParse(statusParam).data ?? "pending";
-  const items = await listInbox({ status, limit: 100 });
+  const user = await requireUser("/inbox");
+  const items = await listInbox(user, { status, limit: 100 });
 
   return (
     <div className="space-y-4">
