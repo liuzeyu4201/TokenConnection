@@ -327,7 +327,6 @@ export function DraftCard({
             rows={2}
             value={draft.person.impression ?? ""}
             onChange={(e) => setPerson("impression", text(e.target.value))}
-            placeholder="人很热情，靠谱但话少"
           />
         </Field>
       </div>
