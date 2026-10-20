@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "@/components/auth-form";
+import { PasskeyLoginButton } from "@/components/passkey-login";
 import { loginAction } from "@/lib/auth/actions";
 import { instanceHasUsers } from "@/lib/auth/bootstrap";
 import { getOptionalUser, safeNextPath } from "@/lib/auth/dal";
@@ -28,6 +29,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           { name: "password", label: "密码", type: "password", autoComplete: "current-password" },
         ]}
       />
+      <PasskeyLoginButton next={next} />
       <div className="flex justify-between text-sm">
         <Link href="/forgot-password" className="text-muted-foreground underline-offset-2 hover:underline">忘记密码</Link>
         <Link href="/register" className="text-muted-foreground underline-offset-2 hover:underline">有邀请码？注册</Link>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationNodeDatum } from "d3";
 
 import { EmptyState } from "@/components/empty-state";
+import { ShareButton } from "@/components/share-panel";
 import { FilterCombobox } from "@/components/filter-combobox";
 import { Button } from "@/components/ui/button";
 import { UNCATEGORIZED_SECTOR } from "@/lib/map/primary-circle";
@@ -151,6 +152,15 @@ export function NetworkMap({ data }: { data: ApiRadialMap }) {
           options={data.locations.map((item) => ({ value: item, label: item }))}
         />
         <div className="col-span-2 flex items-center justify-between gap-2 text-xs text-muted-foreground sm:col-span-1 sm:justify-end">
+          {(() => {
+            const circleTagId =
+              circle && circle !== UNCATEGORIZED_SECTOR
+                ? data.people.find((person) => person.sector === circle)?.primary_circle_tag_id
+                : null;
+            return circleTagId ? (
+              <ShareButton kind="circle" circleTagId={circleTagId} title={circle} label="分享这个圈子" />
+            ) : null;
+          })()}
           {hasFilter ? (
             <Button
               variant="ghost"

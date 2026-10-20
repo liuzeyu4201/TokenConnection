@@ -43,6 +43,14 @@ export const tagKindEnum = pgEnum("tag_kind", TAG_KIND_VALUES);
 export const eventKindEnum = pgEnum("event_kind", EVENT_KIND_VALUES);
 export const inboxStatusEnum = pgEnum("inbox_status", INBOX_STATUS_VALUES);
 export const inboxIntentEnum = pgEnum("inbox_intent", INBOX_INTENT_VALUES);
+export const shareKindEnum = pgEnum("share_kind", ["person", "circle"]);
+export const shareStatusEnum = pgEnum("share_status", ["active", "revoked"]);
+export const shareRecipientStatusEnum = pgEnum("share_recipient_status", [
+  "pending",
+  "accepted",
+  "ignored",
+]);
+export const shareViaEnum = pgEnum("share_via", ["direct", "link"]);
 
 // ---------------------------------------------------------------------------
 // Tables (design.md §7.2). Property names deliberately equal column names
@@ -76,8 +84,9 @@ export const people = pgTable(
   /** True when lat/lng were entered by hand and must not be auto-overwritten. */
   geo_manual: boolean().notNull().default(false),
   /** Fork provenance (share). Null for records created in this library. */
-  source: jsonb().$type<Record<string, string | null>>(),
-  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    source: jsonb().$type<Record<string, string | null>>(),
+    source_share_item_id: uuid().references((): AnyPgColumn => shareItems.id, { onDelete: "set null" }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -173,12 +182,99 @@ export const inbox = pgTable(
   intent: inboxIntentEnum(),
   parsed: jsonb().$type<Draft>(),
   applied_to: uuid().references(() => people.id, { onDelete: "set null" }),
+  share_recipient_id: uuid().references((): AnyPgColumn => shareRecipients.id, { onDelete: "set null" }),
+  share_item_id: uuid().references((): AnyPgColumn => shareItems.id, { onDelete: "set null" }),
   error: text(),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   applied_at: timestamp({ withTimezone: true }),
   },
   (t) => [index("inbox_owner_status_idx").on(t.owner_id, t.status, t.created_at)],
 );
+
+// ---------------------------------------------------------------------------
+// Shares (multi-user-design.md §8). Content tables: RLS is applied in SQL.
+// ---------------------------------------------------------------------------
+
+export const shares = pgTable(
+  "shares",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    owner_id: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: shareKindEnum().notNull(),
+    person_id: uuid().references(() => people.id, { onDelete: "set null" }),
+    circle_tag_id: uuid().references(() => tags.id, { onDelete: "set null" }),
+    fields: jsonb().$type<Record<string, unknown>>().notNull(),
+    message: text(),
+    status: shareStatusEnum().notNull().default("active"),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    refreshed_at: timestamp({ withTimezone: true }),
+    revoked_at: timestamp({ withTimezone: true }),
+  },
+  (t) => [index("shares_owner_idx").on(t.owner_id, t.created_at)],
+);
+
+export const shareItems = pgTable(
+  "share_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    share_id: uuid()
+      .notNull()
+      .references(() => shares.id, { onDelete: "cascade" }),
+    owner_id: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    person_id: uuid().references(() => people.id, { onDelete: "set null" }),
+    snapshot: jsonb().$type<Record<string, unknown> | null>(),
+    snapshot_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    purged_at: timestamp({ withTimezone: true }),
+  },
+  (t) => [index("share_items_share_idx").on(t.share_id)],
+);
+
+export const shareRecipients = pgTable(
+  "share_recipients",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    share_id: uuid()
+      .notNull()
+      .references(() => shares.id, { onDelete: "cascade" }),
+    owner_id: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    user_id: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    via: shareViaEnum().notNull().default("direct"),
+    status: shareRecipientStatusEnum().notNull().default("pending"),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    responded_at: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    unique("share_recipients_share_user_unique").on(t.share_id, t.user_id),
+    index("share_recipients_user_idx").on(t.user_id, t.status),
+  ],
+);
+
+export const shareLinks = pgTable("share_links", {
+  id: uuid().primaryKey().defaultRandom(),
+  share_id: uuid()
+    .notNull()
+    .references(() => shares.id, { onDelete: "cascade" }),
+  owner_id: uuid()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token_hash: text().notNull().unique(),
+  passcode_hash: text(),
+  expires_at: timestamp({ withTimezone: true }).notNull(),
+  max_views: integer(),
+  view_count: integer().notNull().default(0),
+  passcode_failures: integer().notNull().default(0),
+  last_viewed_at: timestamp({ withTimezone: true }),
+  revoked_at: timestamp({ withTimezone: true }),
+  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
 
 // ---------------------------------------------------------------------------
 // Auth-adjacent tables. These are NOT under RLS: login, token lookup and

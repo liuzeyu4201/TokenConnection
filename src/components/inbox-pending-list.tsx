@@ -12,13 +12,19 @@ import { apiFetch, errorMessage } from "@/lib/api-client";
 import { formatRelative } from "@/lib/format";
 import type { ApiInbox, ApiInboxParseResult } from "@/lib/types";
 
-const SOURCE_LABEL: Record<string, string> = { web: "网页", shortcut: "快捷指令", ios: "iOS" };
+const SOURCE_LABEL: Record<string, string> = { web: "网页", shortcut: "快捷指令", ios: "iOS", share: "分享" };
 
 /**
  * Pending inbox items (typically recorded on the phone via the shortcut).
  * Each item expands into the same DraftCard used by the universal input.
  */
-export function InboxPendingList({ items: initialItems, compact = false }: { items: ApiInbox[]; compact?: boolean }) {
+export function InboxPendingList({
+  items: initialItems,
+  compact = false,
+}: {
+  items: Array<ApiInbox & { share?: { id: string; revoked?: boolean } | null }>;
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [items, setItems] = React.useState(initialItems);
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -100,6 +106,10 @@ export function InboxPendingList({ items: initialItems, compact = false }: { ite
                     initialDraft={detail.draft}
                     candidates={detail.candidates}
                     error={detail.error}
+                    allowReparse={item.source !== "share"}
+                    allowNewTags={item.source === "share"}
+                    submitLabel={item.source === "share" ? "收录到我的人脉" : undefined}
+                    discardLabel={item.source === "share" ? "忽略" : undefined}
                     onApplied={() => remove(item.id)}
                     onDiscarded={() => remove(item.id)}
                     onReparsed={(r) => setDetails((d) => ({ ...d, [item.id]: r }))}

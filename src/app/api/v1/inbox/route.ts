@@ -19,12 +19,13 @@ async function readImage(request: NextRequest): Promise<{ input: ReturnType<type
   let image: ImagePayload | undefined;
   if (file instanceof File && file.size > 0) {
     let mediaType: ReturnType<typeof validateImage>;
+    const bytes = new Uint8Array(await file.arrayBuffer());
     try {
-      mediaType = validateImage({ mediaType: file.type, size: file.size });
+      mediaType = validateImage({ mediaType: file.type, size: file.size, bytes });
     } catch (error) {
       throw badRequest(error instanceof Error ? error.message : "图片无法读取");
     }
-    image = { bytes: new Uint8Array(await file.arrayBuffer()), mediaType };
+    image = { bytes, mediaType };
   }
   const personId = form.get("person_id");
   const input = InboxImageCreateSchema.parse({

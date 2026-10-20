@@ -2,14 +2,17 @@ import { eq, ne } from "drizzle-orm";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { passkey } from "@better-auth/passkey";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
+import { twoFactor } from "better-auth/plugins/two-factor";
 import { username } from "better-auth/plugins/username";
 
 import { db } from "@/db";
 import { authSchema, pendingResetLinks, users } from "@/db/schema";
 
 import { audit, clientIp } from "@/lib/audit";
+import { sendMail } from "@/lib/mail/send";
 import { finishNewUser, instanceHasUsers, rememberUsersExist } from "./bootstrap";
 import { checkInvite, hashInviteCode, inviteFailureMessage } from "./invite";
 import { findUserByIdentity, loginBlockReason } from "./login-guard";
@@ -75,12 +78,12 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     resetPasswordTokenExpiresIn: 15 * 60,
     sendResetPassword: async ({ user, url }, request) => {
-      // No mailer in A 期. The link is stored for an admin to copy.
-      // A configured SMTP_URL is logged so it is obvious mail was not sent.
-      if (process.env.SMTP_URL?.trim()) {
-        console.warn("[auth] SMTP_URL is set but this build does not send mail; the reset link was stored for an admin.");
-      }
-      await storeResetLink(user.id, url, null);
+      const sent = await sendMail({
+        to: user.email,
+        subject: "重置密码",
+        text: `打开这个链接重置密码（15 分钟内有效）：\n${url}\n`,
+      });
+      if (!sent) await storeResetLink(user.id, url, null);
       void request;
     },
     onPasswordReset: async ({ user }, request) => {
@@ -197,6 +200,23 @@ export const auth = betterAuth({
     admin({
       defaultRole: "member",
       adminRoles: ["admin"],
+    }),
+    twoFactor({ issuer: "朋友圈" }),
+    passkey({
+      rpID: (() => {
+        try {
+          return new URL(authBaseUrl()).hostname;
+        } catch {
+          return "localhost";
+        }
+      })(),
+      rpName: "朋友圈",
+      origin: authBaseUrl().replace(/\/$/, ""),
+      registration: {
+        afterVerification: async ({ user }) => {
+          await audit({ actorUserId: user.id, action: "auth.passkey.added", targetType: "user", targetId: user.id });
+        },
+      },
     }),
     // Must stay last so Server Actions persist the session cookie.
     nextCookies(),

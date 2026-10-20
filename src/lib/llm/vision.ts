@@ -2,6 +2,7 @@ import { generateText } from "ai";
 
 import { getVisionConfig } from "@/lib/env";
 
+import { checkImageBytes } from "./image-magic";
 import { isMockProvider, getVisionModel } from "./provider";
 import { ExtractionError } from "./types";
 
@@ -25,12 +26,16 @@ export function isImageMediaType(value: string): value is ImageMediaType {
 }
 
 /** Throws a plain Error with a user-facing message when the file cannot be read. */
-export function validateImage(file: { mediaType: string; size: number }): ImageMediaType {
+export function validateImage(file: { mediaType: string; size: number; bytes?: Uint8Array }): ImageMediaType {
   if (!isImageMediaType(file.mediaType)) {
     throw new Error("只支持 jpg、png、webp、gif 图片");
   }
   if (file.size <= 0) throw new Error("图片是空的");
   if (file.size > MAX_IMAGE_BYTES) throw new Error("图片不能超过 4MB");
+  if (file.bytes) {
+    const checked = checkImageBytes(file.bytes, file.mediaType);
+    if (!checked.ok) throw new Error(checked.message);
+  }
   return file.mediaType;
 }
 

@@ -19,6 +19,8 @@ export default async function SettingsPage() {
       title: "库",
       items: [
         { href: "/inbox", label: "收件箱", extra: pending > 0 ? `${pending} 条待处理` : null },
+        { href: "/shared", label: "收到的分享", extra: null },
+        { href: "/shares", label: "我发出的分享", extra: null },
         { href: "/tags", label: "圈子和标签", extra: null },
         { href: "/reminders", label: "该联系了", extra: null },
       ],

@@ -34,6 +34,8 @@ export const users = pgTable(
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     /** Signup-only. Cleared in the user-create hook after the invite is consumed. */
     inviteCode: text("invite_code"),
+    /** Better Auth two-factor plugin. */
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   },
   (t) => [index("users_status_idx").on(t.status)],
 );
@@ -108,4 +110,42 @@ export const accountsRelations = relations(accounts, ({ one }) => ({
 }));
 
 /** Object passed to `drizzleAdapter(..., { usePlural: true, schema })`. */
-export const authSchema = { users, sessions, accounts, verifications };
+export const twoFactors = pgTable(
+  "two_factors",
+  {
+    id: uuid("id").default(sql`pg_catalog.gen_random_uuid()`).primaryKey(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verified: boolean("verified").notNull().default(true),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [index("two_factors_user_idx").on(t.userId), index("two_factors_secret_idx").on(t.secret)],
+);
+
+/** Better Auth passkey plugin. Property names are camelCase for the adapter. */
+export const passkeys = pgTable(
+  "passkeys",
+  {
+    id: uuid("id").default(sql`pg_catalog.gen_random_uuid()`).primaryKey(),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    transports: text("transports"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    aaguid: text("aaguid"),
+  },
+  (t) => [index("passkeys_user_idx").on(t.userId), index("passkeys_credential_idx").on(t.credentialID)],
+);
+
+export const authSchema = { users, sessions, accounts, verifications, twoFactors, passkeys };
+

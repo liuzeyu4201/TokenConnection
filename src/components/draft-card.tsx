@@ -41,6 +41,10 @@ type Props = {
   /** Set when the LLM failed and this is the manual fallback form. */
   error?: string | null;
   allowReparse?: boolean;
+  submitLabel?: string;
+  discardLabel?: string;
+  /** Share cards may introduce tags the recipient does not have yet. */
+  allowNewTags?: boolean;
   onApplied?: (result: ApiInboxApplyResult) => void;
   onDiscarded?: () => void;
   onReparsed?: (result: ApiInboxParseResult) => void;
@@ -85,6 +89,9 @@ export function DraftCard({
   candidates,
   error,
   allowReparse = true,
+  submitLabel,
+  discardLabel,
+  allowNewTags = false,
   onApplied,
   onDiscarded,
   onReparsed,
@@ -368,10 +375,11 @@ export function DraftCard({
 
       <div className="space-y-2">
         <SectionTitle>圈子和标签{isUpdate ? "（标签会追加）" : ""}</SectionTitle>
-        <CirclePicker circles={vocabulary.filter((t) => t.kind === "circle")} value={circle} onChange={setCircle} />
+        <CirclePicker circles={vocabulary.filter((t) => t.kind === "circle")} value={circle} onChange={setCircle} markMissing={allowNewTags} />
         <LabelsPicker
           options={vocabulary.filter((t) => t.kind !== "circle")}
           value={draft.tags}
+          markMissing={allowNewTags}
           onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
         />
       </div>
@@ -417,7 +425,7 @@ export function DraftCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={discard} disabled={busy !== null}>
-            {busy === "discard" ? "丢弃中…" : "丢弃"}
+            {busy === "discard" ? "处理中…" : (discardLabel ?? "丢弃")}
           </Button>
           {allowReparse ? (
             <Button type="button" variant="ghost" size="sm" onClick={reparse} disabled={busy !== null}>
@@ -426,7 +434,7 @@ export function DraftCard({
           ) : null}
         </div>
         <Button type="button" onClick={apply} disabled={busy !== null}>
-          {busy === "apply" ? "入库中…" : isUpdate ? "确认更新" : "确认入库"}
+          {busy === "apply" ? "处理中…" : submitLabel ?? (isUpdate ? "确认更新" : "确认入库")}
         </Button>
       </div>
     </div>

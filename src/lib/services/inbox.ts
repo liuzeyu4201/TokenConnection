@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import { inbox, people, type InboxRow } from "@/db/schema";
+import { inbox, people, shareRecipients, shares, users, type InboxRow } from "@/db/schema";
+import { audit } from "@/lib/audit";
 import { ApiError, badRequest, conflict, notFound } from "@/lib/api/errors";
 import type { ServiceContext } from "@/lib/auth/context";
 import { getPrivacySettings } from "@/lib/auth/settings";
@@ -14,6 +15,7 @@ import { mergeRedactedContacts, redactContacts, restorePlaceholders, type Redact
 import type { ExtractOptions, PeopleIndexEntry } from "@/lib/llm/types";
 import { composeImageText, describeImage, type ImagePayload } from "@/lib/llm/vision";
 import { fallbackDraft, type Draft } from "@/lib/schemas/draft";
+import { matchingContactPersonIds, matchingShareItemPersonIds } from "@/lib/shares/dedupe";
 import type { InboxCreateInput, InboxImageCreateInput, InboxQuery } from "@/lib/schemas/inbox";
 
 import { insertEvent, recomputeLastContact } from "./events";
@@ -27,7 +29,8 @@ import {
   type PersonDetail,
 } from "./people";
 import { searchPeople, type SearchResponse } from "./search";
-import { addPersonTags, canonicalizeTagInputs, listTags, replacePersonTags } from "./tags";
+import { markShareAccepted, noteShareDiscarded } from "./shares";
+import { addPersonTags, canonicalizeTagInputs, listTags, replacePersonTags, upsertTags } from "./tags";
 
 export const TARGET_CONFIDENCE_THRESHOLD = 0.7;
 const MAX_CANDIDATES = 5;
@@ -48,15 +51,56 @@ export type InboxParseResult = {
   error: string | null;
 };
 
-export async function listInbox(ctx: ServiceContext, query: InboxQuery): Promise<InboxRow[]> {
-  return withTenant(ctx, async (tx) =>
-    tx
+export type InboxListItem = InboxRow & {
+  share: {
+    id: string;
+    from_username: string | null;
+    kind: "person" | "circle";
+    item_count: number;
+    revoked: boolean;
+  } | null;
+};
+
+export async function listInbox(ctx: ServiceContext, query: InboxQuery): Promise<InboxListItem[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
       .select()
       .from(inbox)
       .where(and(eq(inbox.owner_id, ctx.userId), eq(inbox.status, query.status)))
       .orderBy(desc(inbox.created_at))
-      .limit(query.limit),
-  );
+      .limit(query.limit);
+    const recipientIds = rows.flatMap((row) => (row.share_recipient_id ? [row.share_recipient_id] : []));
+    if (recipientIds.length === 0) return rows.map((row) => ({ ...row, share: null }));
+    const meta = await tx
+      .select({
+        recipientId: shareRecipients.id,
+        shareId: shares.id,
+        kind: shares.kind,
+        status: shares.status,
+        username: users.username,
+        fields: shares.fields,
+      })
+      .from(shareRecipients)
+      .innerJoin(shares, eq(shares.id, shareRecipients.share_id))
+      .innerJoin(users, eq(users.id, shares.owner_id))
+      .where(and(eq(shareRecipients.user_id, ctx.userId), inArray(shareRecipients.id, recipientIds)));
+    const byRecipient = new Map(meta.map((row) => [row.recipientId, row]));
+    return rows.map((row) => {
+      const found = row.share_recipient_id ? byRecipient.get(row.share_recipient_id) : undefined;
+      if (!found) return { ...row, share: null };
+      const fields = (found.fields ?? {}) as { show_owner_name?: boolean };
+      return {
+        ...row,
+        share: {
+          id: found.shareId,
+          from_username: fields.show_owner_name === false ? null : found.username,
+          kind: found.kind,
+          item_count: 1,
+          revoked: found.status === "revoked",
+        },
+      };
+    });
+  });
 }
 
 export async function getInbox(ctx: ServiceContext, id: string): Promise<InboxRow> {
@@ -85,8 +129,12 @@ export async function describeInbox(ctx: ServiceContext, id: string): Promise<In
   const row = await getInbox(ctx, id);
   const { text } = parseInputPrefix(row.raw_text);
   const stored = row.parsed ?? fallbackDraft(text);
-  const draft = { ...stored, tags: await withTenant(ctx, (tx) => canonicalizeTagInputs(ctx, stored.tags, tx)) };
   const index = await getPeopleIndex(ctx);
+  if (row.source === "share") {
+    const candidates = stored.intent === "query" ? [] : await candidatesFor(ctx, stored, text, index, row.share_item_id);
+    return { inbox: row, draft: stored, candidates, error: row.error };
+  }
+  const draft = { ...stored, tags: await withTenant(ctx, (tx) => canonicalizeTagInputs(ctx, stored.tags, tx)) };
   const candidates = draft.intent === "query" ? [] : await candidatesFor(ctx, draft, text, index);
   return { inbox: row, draft, candidates, error: row.error };
 }
@@ -96,6 +144,7 @@ export async function createAndParseInbox(
   input: InboxCreateInput | InboxImageCreateInput,
   image?: ImagePayload,
 ): Promise<InboxParseResult> {
+  if (input.source === "share") throw badRequest("不能直接创建分享条目");
   const settings = await getPrivacySettings(ctx.userId);
   let rawText = input.raw_text;
   if (image) {
@@ -125,6 +174,7 @@ export async function createAndParseInbox(
 export async function reparseInbox(ctx: ServiceContext, id: string): Promise<InboxParseResult> {
   const row = await getInbox(ctx, id);
   if (row.status !== "pending") throw conflict("只有待处理的条目可以重新解析");
+  if (row.source === "share") throw badRequest("分享条目按当时的快照收录，不用重新解析");
   const settings = await getPrivacySettings(ctx.userId);
   return parseInboxRow(ctx, row, undefined, settings);
 }
@@ -134,6 +184,7 @@ async function candidatesFor(
   draft: Draft,
   text: string,
   index: PeopleIndexEntry[],
+  shareItemId?: string | null,
 ): Promise<Candidate[]> {
   const ids = new Set<string>();
   if (draft.target_person_id) ids.add(draft.target_person_id);
@@ -144,6 +195,17 @@ async function candidatesFor(
       if (p.name.includes(draftName) || draftName.includes(p.name)) ids.add(p.id);
     }
   }
+  const extraIds = await withTenant(ctx, async (tx) => {
+    const ownedRows = await tx
+      .select({ id: people.id, contacts: people.contacts, sourceShareItemId: people.source_share_item_id })
+      .from(people)
+      .where(eq(people.owner_id, ctx.userId));
+    return [
+      ...matchingContactPersonIds(ownedRows, draft.person.contacts),
+      ...matchingShareItemPersonIds(ownedRows, shareItemId),
+    ];
+  });
+  for (const id of extraIds) ids.add(id);
   const picked = [...ids].slice(0, MAX_CANDIDATES);
   if (picked.length === 0) return [];
   return withTenant(ctx, async (tx) => {
@@ -253,6 +315,7 @@ export async function applyInbox(
 
   const isUpdate = draft.intent === "update" && Boolean(draft.target_person_id);
   const personId = await withTenant(ctx, async (tx) => {
+    const fork = await shareFork(ctx, row, tx);
     let targetId: string;
     if (isUpdate) {
       targetId = draft.target_person_id as string;
@@ -274,7 +337,14 @@ export async function applyInbox(
           updated_at: new Date(),
         })
         .where(and(eq(people.id, targetId), eq(people.owner_id, ctx.userId)));
+      if (row.source === "share" && draft.tags.length > 0) await upsertTags(ctx, draft.tags, tx);
       if (draft.tags.length > 0) await addPersonTags(ctx, targetId, draft.tags, tx);
+      if (fork) {
+        await tx
+          .update(people)
+          .set({ source: fork.source, source_share_item_id: fork.source_share_item_id })
+          .where(and(eq(people.id, targetId), eq(people.owner_id, ctx.userId)));
+      }
     } else {
       const name = draft.person.name?.trim();
       if (!name) throw badRequest("请填写姓名再入库", "validation_error");
@@ -292,10 +362,13 @@ export async function applyInbox(
           contacts: p.contacts ?? {},
           how_met: p.how_met,
           met_at: p.met_at,
+          source: fork?.source,
+          source_share_item_id: fork?.source_share_item_id,
           ...initialGeo({ location: p.location }),
         })
         .returning({ id: people.id });
       targetId = created.id;
+      if (row.source === "share" && draft.tags.length > 0) await upsertTags(ctx, draft.tags, tx);
       if (draft.tags.length > 0) await replacePersonTags(ctx, targetId, draft.tags, tx);
     }
 
@@ -313,23 +386,80 @@ export async function applyInbox(
         error: null,
       })
       .where(and(eq(inbox.id, id), eq(inbox.owner_id, ctx.userId)));
-    return targetId;
+    if (fork) await markShareAccepted(ctx, row.share_recipient_id as string, tx);
+    return { targetId, shareId: fork?.shareId ?? null };
   });
 
-  await refreshPersonEmbedding(ctx, personId);
-  const [updatedInbox, person] = await Promise.all([getInbox(ctx, id), getPersonDetail(ctx, personId)]);
+  if (personId.shareId) {
+    await audit({
+      actorUserId: ctx.userId,
+      action: "share.accepted",
+      targetType: "share",
+      targetId: personId.shareId,
+    });
+  }
+  await refreshPersonEmbedding(ctx, personId.targetId);
+  const [updatedInbox, person] = await Promise.all([getInbox(ctx, id), getPersonDetail(ctx, personId.targetId)]);
   return { inbox: updatedInbox, person };
 }
 
 export async function discardInbox(ctx: ServiceContext, id: string): Promise<InboxRow> {
   const row = await getInbox(ctx, id);
   if (row.status !== "pending") throw conflict("这条记录已经处理过了");
-  const [updated] = await withTenant(ctx, (tx) =>
-    tx
+  let shareId: string | null = null;
+  const [updated] = await withTenant(ctx, async (tx) => {
+    const rows = await tx
       .update(inbox)
       .set({ status: "discarded", applied_at: new Date() })
       .where(and(eq(inbox.id, id), eq(inbox.owner_id, ctx.userId)))
-      .returning(),
-  );
+      .returning();
+    shareId = await noteShareDiscarded(ctx, row, tx);
+    return rows;
+  });
+  if (shareId) {
+    await audit({ actorUserId: ctx.userId, action: "share.ignored", targetType: "share", targetId: shareId });
+  }
   return updated;
+}
+
+async function shareFork(ctx: ServiceContext, row: InboxRow, tx: Parameters<typeof markShareAccepted>[2]) {
+  if (row.source !== "share" || !row.share_recipient_id) return null;
+  const [found] = await tx
+    .select({
+      shareId: shares.id,
+      status: shares.status,
+      ownerId: shares.owner_id,
+      username: users.username,
+      sharedAt: shares.created_at,
+    })
+    .from(shareRecipients)
+    .innerJoin(shares, eq(shares.id, shareRecipients.share_id))
+    .innerJoin(users, eq(users.id, shares.owner_id))
+    .where(and(eq(shareRecipients.id, row.share_recipient_id), eq(shareRecipients.user_id, ctx.userId)))
+    .limit(1);
+  if (!found) return null;
+  if (found.status === "revoked") throw conflict("分享已撤销");
+  return {
+    shareId: found.shareId,
+    source_share_item_id: row.share_item_id,
+    source: {
+      kind: "share",
+      share_id: found.shareId,
+      share_item_id: row.share_item_id,
+      from_user_id: found.ownerId,
+      from_username: found.username,
+      shared_at: found.sharedAt.toISOString(),
+      accepted_at: new Date().toISOString(),
+    },
+  };
+}
+
+export async function applyShareGroup(ctx: ServiceContext, shareId: string): Promise<{ applied: number }> {
+  const pending = await listInbox(ctx, { status: "pending", limit: 200 });
+  const mine = pending.filter((row) => row.share?.id === shareId && row.parsed);
+  for (const row of mine) {
+    if (!row.parsed) continue;
+    await applyInbox(ctx, row.id, row.parsed);
+  }
+  return { applied: mine.length };
 }

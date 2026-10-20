@@ -53,6 +53,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
             <li key={item.id} className="space-y-1 px-3 py-2.5">
               <p className="text-sm">{item.raw_text}</p>
               <p className="text-[11px] text-muted-foreground">
+                {item.error === "分享已撤销" ? "分享已撤销 · " : ""}
                 {item.intent ? INBOX_INTENT_LABEL[item.intent] : "—"} · {formatRelative(item.created_at)}
                 {item.applied_to ? (
                   <>

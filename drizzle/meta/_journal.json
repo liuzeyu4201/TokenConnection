@@ -22,6 +22,34 @@
       "when": 1792423165768,
       "tag": "0002_auth_and_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792427416336,
+      "tag": "0003_shares",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792428189159,
+      "tag": "0004_share_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792428795705,
+      "tag": "0005_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792430623430,
+      "tag": "0006_passkeys",
+      "breakpoints": true
     }
   ]
 }

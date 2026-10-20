@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AccountDanger } from "@/components/account-danger";
 import { AuthForm } from "@/components/auth-form";
 import { updateProfileAction } from "@/lib/auth/actions";
 import { getProfile } from "@/lib/auth/account";
@@ -16,7 +17,7 @@ export default async function AccountPage() {
     <div className="mx-auto max-w-lg space-y-4">
       <Link href="/settings" className="text-sm text-muted-foreground">‹ 我</Link>
       <h1 className="text-xl font-semibold">账号资料</h1>
-      <p className="text-sm text-muted-foreground">分享对象通过用户名找到你。导出和注销账号会在后续版本提供。</p>
+      <p className="text-sm text-muted-foreground">分享对象通过用户名找到你。</p>
       <AuthForm
         action={updateProfileAction}
         submitLabel="保存"
@@ -26,6 +27,7 @@ export default async function AccountPage() {
           { name: "email", label: "邮箱", type: "email", defaultValue: profile?.email ?? "" },
         ]}
       />
+      <AccountDanger />
     </div>
   );
 }

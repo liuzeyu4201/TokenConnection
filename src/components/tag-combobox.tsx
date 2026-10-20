@@ -152,17 +152,29 @@ export function CirclePicker<T extends TagOption>({
   value,
   onChange,
   disabled,
+  markMissing = false,
 }: {
   circles: T[];
   value: T | null;
   onChange: (circle: T | null) => void;
   disabled?: boolean;
+  markMissing?: boolean;
 }) {
   if (circles.length === 0 && !value) return <SettingsHint noun="圈子" />;
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
       {value ? (
-        <TagChip name={value.name} kind="circle" onRemove={disabled ? undefined : () => onChange(null)} />
+        <span className="inline-flex items-center gap-1">
+          <TagChip
+            name={value.name}
+            kind="circle"
+            className={markMissing && !circles.some((item) => item.name === value.name) ? "border-dashed" : undefined}
+            onRemove={disabled ? undefined : () => onChange(null)}
+          />
+          {markMissing && !circles.some((item) => item.name === value.name) ? (
+            <span className="text-[10px] text-muted-foreground">新建</span>
+          ) : null}
+        </span>
       ) : (
         <span className="text-xs text-muted-foreground">未分类</span>
       )}
@@ -185,27 +197,35 @@ export function LabelsPicker({
   onChange,
   disabled,
   chipHref,
+  markMissing = false,
 }: {
   options: TagOption[];
   value: TagOption[];
   onChange: (labels: TagOption[]) => void;
   disabled?: boolean;
   chipHref?: (tag: TagOption) => string;
+  markMissing?: boolean;
 }) {
   const chosen = new Set(value.map((t) => `${t.kind}\u0000${t.name}`));
   const available = options.filter((o) => !chosen.has(`${o.kind}\u0000${o.name}`));
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
-        {value.map((tag) => (
-          <TagChip
-            key={`${tag.kind}-${tag.name}`}
-            name={tag.name}
-            kind={tag.kind}
-            href={chipHref?.(tag)}
-            onRemove={disabled ? undefined : () => onChange(value.filter((t) => t !== tag))}
-          />
-        ))}
+        {value.map((tag) => {
+          const missing = markMissing && !options.some((item) => item.name === tag.name && item.kind === tag.kind);
+          return (
+            <span key={`${tag.kind}-${tag.name}`} className="inline-flex items-center gap-1">
+              <TagChip
+                name={tag.name}
+                kind={tag.kind}
+                href={chipHref?.(tag)}
+                className={missing ? "border-dashed" : undefined}
+                onRemove={disabled ? undefined : () => onChange(value.filter((t) => t !== tag))}
+              />
+              {missing ? <span className="text-[10px] text-muted-foreground">新建</span> : null}
+            </span>
+          );
+        })}
         {value.length === 0 ? <span className="text-xs text-muted-foreground">暂无标签</span> : null}
       </div>
       {options.length === 0 ? (

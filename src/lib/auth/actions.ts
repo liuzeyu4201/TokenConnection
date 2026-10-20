@@ -74,12 +74,14 @@ export async function loginAction(_state: FormState, formData: FormData): Promis
   if (blocked) return { message: blocked };
   const headerStore = await headers();
   try {
-    if (identity.email) {
-      await auth.api.signInEmail({ body: { email: identity.email, password }, headers: headerStore });
-    } else {
-      await auth.api.signInUsername({ body: { username: identity.username ?? "", password }, headers: headerStore });
+    const result = identity.email
+      ? await auth.api.signInEmail({ body: { email: identity.email, password }, headers: headerStore })
+      : await auth.api.signInUsername({ body: { username: identity.username ?? "", password }, headers: headerStore });
+    if (result && typeof result === "object" && "twoFactorRedirect" in result && result.twoFactorRedirect) {
+      redirect(`/two-factor?next=${encodeURIComponent(next)}`);
     }
-  } catch {
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
     await notePasswordAttempt(identity, false, clientIp(headerStore));
     return { message: "邮箱、用户名或密码不正确" };
   }
@@ -266,6 +268,18 @@ export async function revokeInviteAction(formData: FormData) {
   const ctx = await requireUser("/admin/invites");
   await revokeInvite(ctx, String(formData.get("id") ?? ""));
   redirect("/admin/invites");
+}
+
+export async function resetTwoFactorAction(formData: FormData) {
+  const ctx = await requireUser("/admin/users");
+  const id = String(formData.get("id") ?? "");
+  try {
+    const { resetUserTwoFactor } = await import("./account");
+    await resetUserTwoFactor(ctx, id);
+  } catch (error) {
+    console.error(error);
+  }
+  redirect("/admin/users");
 }
 
 export async function disableUserAction(formData: FormData) {

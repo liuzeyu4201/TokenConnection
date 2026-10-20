@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
+import { ShareButton } from "@/components/share-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, errorMessage } from "@/lib/api-client";
@@ -138,6 +139,9 @@ export function TagsManager({ tags }: { tags: ApiTagWithCount[] }) {
                           {tag.name}
                         </Link>
                         <span className="text-xs text-muted-foreground">{tag.people_count} 人</span>
+                        {tag.kind === "circle" ? (
+                          <ShareButton kind="circle" circleTagId={tag.id} title={tag.name} label="分享这个圈子" />
+                        ) : null}
                         <Button size="icon-sm" variant="ghost" onClick={() => setEditing({ id: tag.id, name: tag.name, kind: tag.kind })} aria-label="编辑">
                           <Pencil />
                         </Button>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
-import { disableUserAction, issueResetLinkAction, loadAdminUsers } from "@/lib/auth/actions";
+import { disableUserAction, issueResetLinkAction, loadAdminUsers, resetTwoFactorAction } from "@/lib/auth/actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "用户" };
@@ -23,6 +23,10 @@ export default async function AdminUsersPage() {
             </div>
             <p className="text-xs text-muted-foreground">{user.email}</p>
             <div className="flex flex-wrap gap-3">
+              <form action={resetTwoFactorAction}>
+                <input type="hidden" name="id" value={user.id} />
+                <button className="text-xs underline-offset-2 hover:underline" type="submit">重置两步验证</button>
+              </form>
               <form action={disableUserAction}>
                 <input type="hidden" name="id" value={user.id} />
                 <input type="hidden" name="disabled" value={user.status === "disabled" ? "0" : "1"} />

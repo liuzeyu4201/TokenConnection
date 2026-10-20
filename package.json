@@ -15,11 +15,14 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:reembed": "tsx src/db/reembed.ts",
     "db:geocode": "tsx src/db/geocode.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:prune-audit": "tsx src/db/prune-audit.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.57",
     "@base-ui/react": "^1.8.0",
+    "@better-auth/passkey": "1.7.11",
+    "@simplewebauthn/server": "13.3.1",
     "ai": "^7.0.116",
     "better-auth": "1.7.11",
     "class-variance-authority": "^0.7.1",
@@ -28,6 +31,7 @@
     "drizzle-orm": "^0.45.3",
     "lucide-react": "^1.48.0",
     "next": "16.3.6",
+    "nodemailer": "7.0.10",
     "pinyin-pro": "^3.29.5",
     "postgres": "^3.4.9",
     "react": "19.2.8",
@@ -41,6 +45,7 @@
     "@types/d3": "^7.4.3",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^24.19.0",
+    "@types/nodemailer": "7.0.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",

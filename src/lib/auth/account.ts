@@ -1,9 +1,10 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { apiTokens, invites, sessions, users } from "@/db/schema";
+import { apiTokens, invites, sessions, twoFactors, users } from "@/db/schema";
 import { ApiError } from "@/lib/api/errors";
 import { audit } from "@/lib/audit";
+import { sendMail } from "@/lib/mail/send";
 
 import type { Scope, ServiceContext } from "./context";
 import { assertAdmin } from "./request-context";
@@ -131,7 +132,32 @@ export async function createInvite(
     targetId: row.id,
     meta: { role },
   });
-  return { ...row, url: `${origin}/register?invite=${encodeURIComponent(minted.code)}` };
+  const url = `${origin}/register?invite=${encodeURIComponent(minted.code)}`;
+  if (row.email) {
+    await sendMail({
+      to: row.email,
+      subject: "邀请你加入朋友圈",
+      text: `打开这个链接注册（邀请码一次性）：\n${url}\n`,
+    });
+  }
+  return { ...row, url };
+}
+
+/** Clear another user's TOTP and backup codes. The last admin rules do not apply. */
+export async function resetUserTwoFactor(ctx: ServiceContext, userId: string): Promise<void> {
+  assertAdmin(ctx);
+  if (ctx.userId === userId) throw new ApiError(400, "validation_error", "不能重置自己的两步验证");
+  const target = await getProfile(userId);
+  if (!target) throw new ApiError(404, "not_found", "用户不存在");
+  await db.update(users).set({ twoFactorEnabled: false }).where(eq(users.id, userId));
+  await db.delete(twoFactors).where(eq(twoFactors.userId, userId));
+  await audit({
+    action: "admin.user.reset_2fa",
+    actorUserId: ctx.userId,
+    subjectUserId: userId,
+    targetType: "user",
+    targetId: userId,
+  });
 }
 
 export async function listInvites() {

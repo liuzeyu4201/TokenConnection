@@ -1,6 +1,6 @@
 # TokenConnection 多用户设计：登录、认证、安全与人脉分享
 
-> 状态：设计稿 v0.1。A 期已按本文落地，偏离见 §0.3。
+> 状态：设计稿 v0.1。A/B/C 期已按本文落地。Passkey 的浏览器仪式需要平台验证器，非浏览器验证用虚拟 authenticator。偏离见 §0.3、§0.4。
 > 本文是对 `docs/design.md`（下称「原设计」）的增量设计：把「只给我自己用的人脉库」改成「每个用户各有一个私有人脉库，并且可以把某个人或某个圈子以只读卡片引荐给别人」。原设计中与本文冲突的结论以本文为准（§0 逐条列出），其余照旧。
 > 文中的「M-xx」是本文的决策编号，与原设计的「D-xx」并列；「落地指引」段落给出直接可排期的实现要求；标注「待确认」的事实在开工第一天用实际命令或文档核实，不要凭记忆写代码。
 
@@ -17,6 +17,17 @@
 - `tc_owner` 带 `BYPASSRLS`，方便迁移和脚本；应用连接必须是 `tc_app`。生产环境若当前角色绕过 RLS 则拒绝启动。
 - 分享外键（`share_recipient_id`、`source_share_item_id`）、Passkey、TOTP、导出/注销、图片魔数、强制 CSP 按分期不做。安全页只放密码和会话，Passkey / 两步验证标明稍后推出。
 
+
+
+### 0.4 实现说明（B / C 期，2026-10-20）
+
+- 圈子分享一条 `share_recipients` 对应多条 inbox，因此 inbox 增加了文档未单列的 `share_item_id`，收录时写入 `people.source.share_item_id`。
+- `share_items` / `share_recipients` / `share_links` 冗余了 `owner_id`。策略如果互相子查询 `shares`，Postgres 会报 `42P17` 无限递归。
+- 分享链接的口令用 scrypt 保存。公开读取每次成功加一 `view_count`。
+- 导出是同步 zip（`people.json` 等四份），不是文档里的异步 job。注销要在请求里再输入密码，并确认文案「删除我的账号」。最后一个活跃管理员不能注销。
+- 图片魔数和 2500 万像素上限在上传入口校验，用文件头解析尺寸，没有引入 sharp。
+- CSP 在 `src/proxy.ts` 强制 nonce。`style-src` 与 `style-src-attr` 仍允许 `'unsafe-inline'`，否则 d3 地图和现有样式会坏。开发环境保留 `'unsafe-eval'`，并且不加 `upgrade-insecure-requests`（http://localhost 会被升到 https）。
+- 两步验证用 Better Auth `twoFactor` 插件，表 `two_factors`。信任设备是插件的 `trust_device` cookie，默认 30 天（`trustDeviceMaxAge`）。Passkey 用 `@better-auth/passkey@1.7.11`，表 `passkeys`。浏览器注册走真实 WebAuthn；没有平台验证器时页面会报错，不能当成注册成功。非浏览器验证用 `@simplewebauthn/server` 核对虚拟凭证的 challenge、计数器和公钥。`/admin/settings` 仍只读环境变量。`SMTP_URL` 为空时不发信；配了以后邀请、重置密码、以及接收方打开了「有人分享给我时发邮件」的分享通知会走 `sendMail`。
 
 ### 0.1 本文取代原设计中的哪些结论
 

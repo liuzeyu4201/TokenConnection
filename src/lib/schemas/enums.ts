@@ -23,7 +23,7 @@ export const EVENT_KIND_VALUES = [
 ] as const;
 export const INBOX_STATUS_VALUES = ["pending", "applied", "discarded"] as const;
 export const INBOX_INTENT_VALUES = ["add", "update", "query", "unknown"] as const;
-export const INBOX_SOURCE_VALUES = ["web", "shortcut", "ios"] as const;
+export const INBOX_SOURCE_VALUES = ["web", "shortcut", "ios", "share"] as const;
 
 export const Tier = z.enum(TIER_VALUES);
 export const Gender = z.enum(GENDER_VALUES);

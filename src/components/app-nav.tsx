@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUser, Home, Radar, Users } from "lucide-react";
+import { CircleUser, Home, Radar, Share2, Users } from "lucide-react";
 
 import { logoutAction } from "@/lib/auth/actions";
 import { cn } from "cn";
@@ -25,16 +25,18 @@ function BrandMark({ className }: { className?: string }) {
   );
 }
 
-type NavItem = { href: string; label: string; mobile?: string; icon: typeof Home; exact?: boolean };
+type NavItem = { href: string; label: string; mobile?: string; icon: typeof Home; exact?: boolean; desktopOnly?: boolean };
 
 const ITEMS: NavItem[] = [
   { href: "/", label: "首页", icon: Home, exact: true },
   { href: "/people", label: "人脉", icon: Users },
   { href: "/map", label: "地图", icon: Radar },
+  { href: "/shared", label: "分享", icon: Share2, desktopOnly: true },
   { href: "/settings", label: "设置", mobile: "我", icon: CircleUser },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
+  if (href === "/shared") return pathname === "/shared" || pathname.startsWith("/shares");
   if (href === "/settings") {
     return (
       pathname === "/settings" ||
@@ -107,7 +109,7 @@ export function AppNav({
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <ul className="mx-auto grid max-w-3xl grid-cols-4">
-          {ITEMS.map(({ href, label, mobile, icon: Icon, exact }) => {
+          {ITEMS.filter((item) => !item.desktopOnly).map(({ href, label, mobile, icon: Icon, exact }) => {
             const active = isActive(pathname, href, exact);
             return (
               <li key={href}>

@@ -39,6 +39,36 @@
 
 所在地用 `src/lib/geo/cities.ts` 的离线城市表（GeoNames cities15000，CC BY 4.0）匹配。匹配不到的人出现在地理地图的「未定位」里。底图是随包的中国省级边界 `src/lib/geo/china-provinces.json`。
 
+
+## 分享
+
+需要登录会话，PAT 不能调用。链接明文只在创建时返回一次。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/shares` | `{ kind, person_id? , circle_tag_id?, fields?, message?, recipients?: ["@beibei"], link? }` |
+| `GET` | `/shares` | 我发出的 |
+| `GET` | `/shares/:id` | 详情 |
+| `POST` | `/shares/:id/refresh` | 按原字段刷新快照 |
+| `POST` | `/shares/:id/revoke` | 撤销。已收录副本不删，响应里有 `accepted_count` |
+| `POST` | `/shares/:id/links` | 再建一条链接 |
+| `DELETE` | `/shares/:id/links/:linkId` | 撤销一条链接 |
+| `GET` | `/shared` | 我收到的 |
+| `POST` | `/shared/:id/accept` | 把这一组待处理分享全部收录 |
+| `GET` | `/s/:token` | 公开。口令未解锁时 401 `share_passcode_required`；失效 410 `share_gone` |
+| `POST` | `/s/:token/unlock` | `{ passcode }`，成功后写 15 分钟 HttpOnly cookie |
+| `POST` | `/s/:token/collect` | 登录后收录，返回 `{ inbox_ids }` |
+| `POST` | `/account/export` | 下载自己的 zip |
+| `POST` | `/account/delete` | `{ password, confirm: "删除我的账号" }` |
+
+分享快照默认只有姓名、性别、所在地、标签、认识方式、认识日期和坐标。印象要带 `fields.confirm_impression: true`。
+
+## 错误码
+
+`unauthorized`、`token_expired`、`token_revoked`、`share_passcode_required`、`forbidden`、`insufficient_scope`、`csrf_rejected`、`account_disabled`、`share_gone`、`rate_limited`、`quota_exceeded`、`vision_disabled`。
+
+所有人脉、标签、搜索、地图、提醒都只计算当前用户自己的数据。
+
 ## 例子
 
 ```bash

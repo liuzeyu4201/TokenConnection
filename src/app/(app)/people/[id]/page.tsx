@@ -5,6 +5,7 @@ import { ChevronLeft, MapPin } from "lucide-react";
 
 import { AppendInput } from "@/components/append-input";
 import { DeletePersonButton } from "@/components/person-edit-form";
+import { ShareButton } from "@/components/share-panel";
 import { EnterEditButton, PersonEditPanel, ProfileEdit, ProfileModes, ProfileView } from "@/components/profile-modes";
 import { TagChip } from "@/components/tag-chip";
 import { TierBadge } from "@/components/tier-badge";
@@ -14,6 +15,7 @@ import { contactLabel, formatDate, formatDay, formatRelative } from "@/lib/forma
 import { ApiError } from "@/lib/api/errors";
 import { GENDER_LABEL } from "@/lib/schemas/enums";
 import type { ApiEvent, ApiTag } from "@/lib/types";
+import { getProfile } from "@/lib/auth/account";
 import { requireUser } from "@/lib/auth/dal";
 import { getPersonDetail, type PersonDetail } from "@/lib/services/people";
 import { listTags } from "@/lib/services/tags";
@@ -69,6 +71,14 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const editGeo = (Array.isArray(query.edit) ? query.edit[0] : query.edit) === "geo";
   const person = await loadPerson(id);
   if (!person) notFound();
+  const fromId = person.source?.from_user_id ?? null;
+  const fromUser = fromId ? await getProfile(fromId) : null;
+  const sourceLine =
+    person.source?.kind === "share"
+      ? fromUser
+        ? `来源：@${fromUser.username ?? fromUser.name} 分享`
+        : "来源：已注销用户"
+      : null;
 
   const vocabulary: ApiTag[] = (await listTags(await requireUser(`/people/${id}`))).map(({ id, name, kind }) => ({ id, name, kind }));
   const contacts = Object.entries(person.contacts);
@@ -115,8 +125,18 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                 ) : null}
               </p>
               {person.summary ? <p className="max-w-xl text-sm leading-relaxed">{person.summary}</p> : null}
+              {sourceLine ? <p className="text-xs text-muted-foreground">{sourceLine}</p> : null}
             </div>
             <div className="flex shrink-0 gap-1">
+              <ShareButton
+                kind="person"
+                personId={person.id}
+                title={person.name}
+                contactKeys={Object.keys(person.contacts ?? {})}
+                hasImpression={Boolean(person.impression)}
+                hasSummary={Boolean(person.summary)}
+                eventCount={person.events.length}
+              />
               <EnterEditButton />
               <DeletePersonButton personId={person.id} personName={person.name} />
             </div>

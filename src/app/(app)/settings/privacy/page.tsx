@@ -15,7 +15,7 @@ export default async function PrivacyPage() {
     ["llm_enabled", "使用模型抽取与搜索", settings.llm_enabled],
     ["redact_contacts", "发送前脱敏联系方式", settings.redact_contacts],
     ["vision_enabled", "允许图片识别", settings.vision_enabled],
-    ["notify_share_email", "有人分享给我时发邮件（暂无邮件服务）", settings.notify_share_email],
+    ["notify_share_email", process.env.SMTP_URL?.trim() ? "有人分享给我时发邮件" : "有人分享给我时发邮件（未配置邮件，保存后也不会发出）", settings.notify_share_email],
   ] as const;
   return (
     <div className="mx-auto max-w-lg space-y-4">

@@ -20,6 +20,31 @@ export async function withTenant<T>(ctx: ServiceContext, fn: (tx: DbClient) => P
   });
 }
 
+/** Visitor read of a share link. Sets `app.share_token_hash` for the RLS policy. */
+export async function withShareToken<T>(tokenHash: string, fn: (tx: DbClient) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.share_token_hash', ${tokenHash}, true)`);
+    return fn(tx);
+  });
+}
+
+/**
+ * Logged-in visitor collecting a link. Both settings are required: inbox writes
+ * check `app.user_id`, and the foreign key into `shares` / `share_items` is
+ * only visible while the link hash is set.
+ */
+export async function withUserAndShareToken<T>(
+  ctx: ServiceContext,
+  tokenHash: string,
+  fn: (tx: DbClient) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.user_id', ${ctx.userId}, true)`);
+    await tx.execute(sql`select set_config('app.share_token_hash', ${tokenHash}, true)`);
+    return fn(tx);
+  });
+}
+
 /** Use an existing transaction when the caller already holds one. */
 export async function inTenant<T>(
   ctx: ServiceContext,
