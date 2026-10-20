@@ -4,12 +4,12 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { PeopleFilters } from "@/components/people-filters";
 import { PersonCard } from "@/components/person-card";
-import { ReminderList } from "@/components/reminder-list";
+import { DueReminders } from "@/components/reminder-list";
 import { Button } from "@/components/ui/button";
 import { PeopleQuerySchema } from "@/lib/schemas/person";
 import { requireUser } from "@/lib/auth/dal";
 import { listPeoplePage } from "@/lib/services/people";
-import { listReminders } from "@/lib/services/reminders";
+import { listContactReminders } from "@/lib/services/reminders";
 import { listTags } from "@/lib/services/tags";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
   const [{ items, page, pageCount }, tags, reminders] = await Promise.all([
     listPeoplePage(user, query, parsePage(first(raw.page)), PAGE_SIZE),
     listTags(user),
-    listReminders(user),
+    listContactReminders(user),
   ]);
 
   const filterParams = {
@@ -144,17 +144,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
         ) : null}
       </section>
 
-      {reminders.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="flex items-baseline justify-between text-sm font-semibold">
-            该联系了
-            <Link href="/reminders" className="text-sm font-semibold hover:underline">
-              查看全部 →
-            </Link>
-          </h2>
-          <ReminderList items={reminders.slice(0, 5)} />
-        </section>
-      ) : null}
+      <DueReminders items={reminders} />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { matchingContactPersonIds, matchingShareItemPersonIds } from "@/lib/shar
 import type { InboxCreateInput, InboxImageCreateInput, InboxQuery } from "@/lib/schemas/inbox";
 
 import { insertEvent, recomputeLastContact } from "./events";
+import { ensureFollowUpPlan } from "./follow-ups";
 import {
   getPeopleIndex,
   getPersonDetail,
@@ -398,7 +399,11 @@ export async function applyInbox(
       targetId: personId.shareId,
     });
   }
-  await refreshPersonEmbedding(ctx, personId.targetId);
+  try {
+    await refreshPersonEmbedding(ctx, personId.targetId);
+  } finally {
+    if (!isUpdate) await ensureFollowUpPlan(ctx, personId.targetId);
+  }
   const [updatedInbox, person] = await Promise.all([getInbox(ctx, id), getPersonDetail(ctx, personId.targetId)]);
   return { inbox: updatedInbox, person };
 }

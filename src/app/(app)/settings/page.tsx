@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/lib/auth/actions";
 import { getProfile } from "@/lib/auth/account";
 import { requireUser } from "@/lib/auth/dal";
+import { getPrivacySettings } from "@/lib/auth/settings";
+import { updateFollowUpSettingAction } from "@/lib/followups/actions";
 import { countPendingInbox } from "@/lib/services/inbox";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +17,7 @@ export default async function SettingsPage() {
   const ctx = await requireUser("/settings");
   const profile = await getProfile(ctx.userId);
   const pending = await countPendingInbox(ctx).catch(() => 0);
+  const settings = await getPrivacySettings(ctx.userId);
   const groups = [
     {
       title: "库",
@@ -55,6 +59,21 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground">@{profile?.username} · {profile?.email}</p>
         </div>
       </div>
+      <section className="space-y-2">
+        <h2 className="text-xs font-medium text-muted-foreground">回访</h2>
+        <form action={updateFollowUpSettingAction} className="space-y-3 rounded-xl border bg-card p-4 text-sm">
+          <label className="flex items-start justify-between gap-3">
+            <span>
+              <span className="block">新加入的人做回访提醒</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                打开后，新加入的人会在第 2 天、3 天、1 周、1 个月提醒回访。已经在库里的人不会补上。关掉后，没完成的回访先从提醒里拿掉，再打开会回来。
+              </span>
+            </span>
+            <input type="checkbox" name="follow_up_enabled" defaultChecked={settings.follow_up_enabled} className="mt-1" />
+          </label>
+          <Button type="submit">保存</Button>
+        </form>
+      </section>
       {groups.map((group) => (
         <section key={group.title} className="space-y-2">
           <h2 className="text-xs font-medium text-muted-foreground">{group.title}</h2>

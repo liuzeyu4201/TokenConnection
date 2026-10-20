@@ -11,6 +11,7 @@ import { TIER_LABEL } from "@/lib/schemas/enums";
 import type { PeopleQuery, PersonCreateInput, PersonUpdateInput, TagInput } from "@/lib/schemas/person";
 
 import { likePattern, type DbClient } from "./db-client";
+import { ensureFollowUpPlan } from "./follow-ups";
 import { getTagsForPeople, replacePersonTags } from "./tags";
 
 export type PersonWithTags = PersonRow & { tags: TagRow[] };
@@ -285,7 +286,11 @@ export async function createPerson(ctx: ServiceContext, input: PersonCreateInput
     }
     return row.id;
   });
-  await refreshPersonEmbedding(ctx, id);
+  try {
+    await refreshPersonEmbedding(ctx, id);
+  } finally {
+    await ensureFollowUpPlan(ctx, id);
+  }
   return getPersonDetail(ctx, id);
 }
 

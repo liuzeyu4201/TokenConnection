@@ -24,6 +24,7 @@ export const EVENT_KIND_VALUES = [
 export const INBOX_STATUS_VALUES = ["pending", "applied", "discarded"] as const;
 export const INBOX_INTENT_VALUES = ["add", "update", "query", "unknown"] as const;
 export const INBOX_SOURCE_VALUES = ["web", "shortcut", "ios", "share"] as const;
+export const FOLLOW_UP_STATUS_VALUES = ["pending", "done", "skipped"] as const;
 
 export const Tier = z.enum(TIER_VALUES);
 export const Gender = z.enum(GENDER_VALUES);
@@ -32,6 +33,7 @@ export const EventKind = z.enum(EVENT_KIND_VALUES);
 export const InboxStatus = z.enum(INBOX_STATUS_VALUES);
 export const InboxIntent = z.enum(INBOX_INTENT_VALUES);
 export const InboxSource = z.enum(INBOX_SOURCE_VALUES);
+export const FollowUpStatus = z.enum(FOLLOW_UP_STATUS_VALUES);
 
 export type Tier = z.infer<typeof Tier>;
 export type Gender = z.infer<typeof Gender>;
@@ -40,6 +42,7 @@ export type EventKind = z.infer<typeof EventKind>;
 export type InboxStatus = z.infer<typeof InboxStatus>;
 export type InboxIntent = z.infer<typeof InboxIntent>;
 export type InboxSource = z.infer<typeof InboxSource>;
+export type FollowUpStatus = z.infer<typeof FollowUpStatus>;
 
 // ---------------------------------------------------------------------------
 // Display helpers. Tier display names keep the original English wording.

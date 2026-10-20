@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, MapPin } from "lucide-react";
 
 import { AppendInput } from "@/components/append-input";
+import { FollowUpPlan } from "@/components/follow-up-plan";
 import { DeletePersonButton } from "@/components/person-edit-form";
 import { ShareButton } from "@/components/share-panel";
 import { EnterEditButton, PersonEditPanel, ProfileEdit, ProfileModes, ProfileView } from "@/components/profile-modes";
@@ -17,6 +18,7 @@ import { GENDER_LABEL } from "@/lib/schemas/enums";
 import type { ApiEvent, ApiTag } from "@/lib/types";
 import { getProfile } from "@/lib/auth/account";
 import { requireUser } from "@/lib/auth/dal";
+import { listPersonFollowUps } from "@/lib/services/follow-ups";
 import { getPersonDetail, type PersonDetail } from "@/lib/services/people";
 import { listTags } from "@/lib/services/tags";
 
@@ -80,7 +82,9 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         : "来源：已注销用户"
       : null;
 
-  const vocabulary: ApiTag[] = (await listTags(await requireUser(`/people/${id}`))).map(({ id, name, kind }) => ({ id, name, kind }));
+  const user = await requireUser(`/people/${id}`);
+  const [vocabularyRows, followUps] = await Promise.all([listTags(user), listPersonFollowUps(user, person.id)]);
+  const vocabulary: ApiTag[] = vocabularyRows.map(({ id, name, kind }) => ({ id, name, kind }));
   const contacts = Object.entries(person.contacts);
   const events = timelineEvents(person);
   const circle = resolvePrimaryCircle(person.primary_circle_tag_id, person.tags);
@@ -192,6 +196,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             </div>
           </div>
         </article>
+
+        <FollowUpPlan personId={person.id} steps={followUps} />
 
         <section className="space-y-3">
           <h2 className="flex items-baseline gap-3 text-sm font-semibold">

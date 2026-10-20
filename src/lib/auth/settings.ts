@@ -8,6 +8,7 @@ export type PrivacySettings = {
   redact_contacts: boolean;
   vision_enabled: boolean;
   notify_share_email: boolean;
+  follow_up_enabled: boolean;
 };
 
 const DEFAULTS: PrivacySettings = {
@@ -15,6 +16,7 @@ const DEFAULTS: PrivacySettings = {
   redact_contacts: true,
   vision_enabled: true,
   notify_share_email: false,
+  follow_up_enabled: true,
 };
 
 export async function ensureUserSettings(userId: string): Promise<PrivacySettings> {
@@ -30,6 +32,7 @@ export async function getPrivacySettings(userId: string): Promise<PrivacySetting
     redact_contacts: row.redact_contacts,
     vision_enabled: row.vision_enabled,
     notify_share_email: row.notify_share_email,
+    follow_up_enabled: row.follow_up_enabled,
   };
 }
 
@@ -48,5 +51,6 @@ export async function updatePrivacySettings(
     redact_contacts: row.redact_contacts,
     vision_enabled: row.vision_enabled,
     notify_share_email: row.notify_share_email,
+    follow_up_enabled: row.follow_up_enabled,
   };
 }

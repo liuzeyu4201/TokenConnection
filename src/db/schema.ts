@@ -22,6 +22,7 @@ import {
 import type { Draft } from "../lib/schemas/draft";
 import {
   EVENT_KIND_VALUES,
+  FOLLOW_UP_STATUS_VALUES,
   GENDER_VALUES,
   INBOX_INTENT_VALUES,
   INBOX_STATUS_VALUES,
@@ -51,6 +52,7 @@ export const shareRecipientStatusEnum = pgEnum("share_recipient_status", [
   "ignored",
 ]);
 export const shareViaEnum = pgEnum("share_via", ["direct", "link"]);
+export const followUpStatusEnum = pgEnum("follow_up_status", FOLLOW_UP_STATUS_VALUES);
 
 // ---------------------------------------------------------------------------
 // Tables (design.md §7.2). Property names deliberately equal column names
@@ -144,6 +146,30 @@ export const events = pgTable(
   (t) => [
     index("events_person_id_idx").on(t.person_id, t.happened_at),
     index("events_owner_person_idx").on(t.owner_id, t.person_id, t.happened_at),
+  ],
+);
+
+/** Four revisit steps for a person, counted from the day they joined this library. */
+export const followUps = pgTable(
+  "follow_ups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    owner_id: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    person_id: uuid()
+      .notNull()
+      .references(() => people.id, { onDelete: "cascade" }),
+    offset_days: integer().notNull(),
+    due_on: date().notNull(),
+    suggestion: text().notNull(),
+    status: followUpStatusEnum().notNull().default("pending"),
+    completed_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("follow_ups_person_offset_unique").on(t.person_id, t.offset_days),
+    index("follow_ups_owner_status_due_idx").on(t.owner_id, t.status, t.due_on),
   ],
 );
 
@@ -289,6 +315,8 @@ export const userSettings = pgTable("user_settings", {
   redact_contacts: boolean().notNull().default(true),
   vision_enabled: boolean().notNull().default(true),
   notify_share_email: boolean().notNull().default(false),
+  /** When true, newly added people get a four-step revisit plan. Existing people are left alone. */
+  follow_up_enabled: boolean().notNull().default(true),
   updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -386,4 +414,5 @@ export type TagRow = typeof tags.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
 export type NewEventRow = typeof events.$inferInsert;
 export type InboxRow = typeof inbox.$inferSelect;
+export type FollowUpRow = typeof followUps.$inferSelect;
 export type PersonEmbeddingRow = typeof peopleEmbeddings.$inferSelect;

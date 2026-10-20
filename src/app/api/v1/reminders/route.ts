@@ -2,8 +2,13 @@ import type { NextRequest } from "next/server";
 
 import { json, route } from "@/lib/api/handler";
 import { REMINDER_THRESHOLD_DAYS } from "@/lib/reminders/thresholds";
-import { listReminders } from "@/lib/services/reminders";
+import { listContactReminders, listReminders } from "@/lib/services/reminders";
 
 export const GET = route(async (_request: NextRequest, _ctx, auth) => {
-  return json({ items: await listReminders(auth), thresholds: REMINDER_THRESHOLD_DAYS });
+  const [items, feed] = await Promise.all([listReminders(auth), listContactReminders(auth)]);
+  return json({
+    items,
+    follow_ups: feed.filter((item) => item.kind === "follow_up"),
+    thresholds: REMINDER_THRESHOLD_DAYS,
+  });
 }, { scope: "reminders:read" });

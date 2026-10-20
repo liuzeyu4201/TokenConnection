@@ -1,13 +1,18 @@
 import { InboxPendingList } from "@/components/inbox-pending-list";
+import { DueReminders } from "@/components/reminder-list";
 import { UniversalInput } from "@/components/universal-input";
 import { requireUser } from "@/lib/auth/dal";
 import { listInbox } from "@/lib/services/inbox";
+import { listContactReminders } from "@/lib/services/reminders";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const user = await requireUser("/");
-  const pending = await listInbox(user, { status: "pending", limit: 5 });
+  const [pending, reminders] = await Promise.all([
+    listInbox(user, { status: "pending", limit: 5 }),
+    listContactReminders(user),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -17,6 +22,8 @@ export default async function HomePage() {
       </div>
 
       <UniversalInput />
+
+      <DueReminders items={reminders} />
 
       {pending.length > 0 ? (
         <section className="space-y-2">
