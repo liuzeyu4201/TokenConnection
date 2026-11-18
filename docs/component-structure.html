@@ -1,0 +1,3086 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TokenConnection（朋友圈）· 组件 HTML 结构图谱</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+      /* 文档画布色板 */
+      --doc-bg: #f8fafc;
+      --doc-surface: #ffffff;
+      --doc-border: #e2e8f0;
+      --doc-text: #0f172a;
+      --doc-muted: #64748b;
+      --doc-subtle: #f1f5f9;
+      --doc-accent: #6a2c3c;
+      --doc-accent-soft: #fdf2f4;
+
+      /* TokenConnection 项目真实 UI 变量复刻 (来自 src/app/globals.css) */
+      --tc-bg: #ffffff;
+      --tc-fg: #171717;
+      --tc-card: #ffffff;
+      --tc-muted: #f5f5f5;
+      --tc-muted-fg: #737373;
+      --tc-border: #e5e5e5;
+      --tc-primary: #262626;
+      --tc-primary-fg: #fafafa;
+      --tc-destructive: #dc2626;
+      --tc-destructive-bg: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; font-family: var(--font-sans); color: var(--doc-text); background: var(--doc-bg); }
+    body { margin: 0; line-height: 1.5; }
+    a { color: inherit; text-decoration: none; }
+
+    /* 整体双栏文档布局 */
+    .doc-shell {
+      display: grid;
+      grid-template-columns: 272px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    @media (max-width: 1024px) {
+      .doc-shell { grid-template-columns: 1fr; }
+      .doc-sidebar { position: static !important; height: auto !important; border-right: 0 !important; border-bottom: 1px solid var(--doc-border); }
+    }
+
+    /* 侧边目录栏 */
+    .doc-sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--doc-surface);
+      border-right: 1px solid var(--doc-border);
+      padding: 18px 14px 32px;
+      font-size: 13px;
+    }
+    .doc-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 6px 12px;
+      border-bottom: 1px solid var(--doc-border);
+      margin-bottom: 12px;
+    }
+    .doc-brand svg { width: 26px; height: 26px; flex-shrink: 0; }
+    .doc-brand-title { font-weight: 700; font-size: 15px; line-height: 1.2; }
+    .doc-brand-sub { font-size: 11px; color: var(--doc-muted); margin-top: 2px; }
+
+    .doc-filter {
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--doc-border);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 12px;
+      background: var(--doc-bg);
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .doc-filter:focus { border-color: #94a3b8; background: #fff; }
+
+    .nav-group { margin-bottom: 14px; }
+    .nav-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--doc-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+    }
+    .nav-list { list-style: none; margin: 0; padding: 0; }
+    .nav-list li a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      color: #334155;
+      font-size: 12.5px;
+      transition: background 0.15s;
+    }
+    .nav-list li a:hover { background: var(--doc-subtle); color: var(--doc-text); }
+    .nav-list code { font-family: var(--font-mono); font-size: 11.5px; }
+    .nav-tag {
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: var(--doc-subtle);
+      color: var(--doc-muted);
+      flex-shrink: 0;
+    }
+
+    /* 主内容区 */
+    .doc-main {
+      padding: 28px 32px 80px;
+      max-width: 1380px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    @media (max-width: 640px) {
+      .doc-main { padding: 18px 14px 60px; }
+    }
+
+    /* 顶部 Hero */
+    .hero {
+      background: var(--doc-surface);
+      border: 1px solid var(--doc-border);
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 28px;
+    }
+    .hero-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .hero h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+    .hero p { margin: 6px 0 0; color: var(--doc-muted); font-size: 14px; max-width: 780px; }
+    .legend-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--doc-border);
+      font-size: 12px;
+      color: #475569;
+    }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; background: var(--doc-bg); border: 1px solid var(--doc-border); border-radius: 8px; padding: 4px 10px; }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .stat-box {
+      background: var(--doc-bg);
+      border: 1px solid var(--doc-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .stat-num { font-size: 22px; font-weight: 700; color: var(--doc-text); line-height: 1.1; }
+    .stat-label { font-size: 12px; color: var(--doc-muted); margin-top: 4px; }
+
+    /* 章节标题 */
+    .group-section { margin-top: 40px; scroll-margin-top: 20px; }
+    .group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--doc-border);
+    }
+    .group-header h2 { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+    .group-header span { font-size: 12.5px; color: var(--doc-muted); }
+
+    /* 路由拓扑网格 */
+    .topology-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+    .topo-card {
+      background: var(--doc-surface);
+      border: 1px solid var(--doc-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .topo-title { font-weight: 700; font-size: 13.5px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .topo-route-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+    .topo-route-list li {
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: var(--doc-bg);
+      border: 1px solid #edf2f7;
+    }
+    .route-path { font-family: var(--font-mono); font-weight: 600; color: #0f172a; }
+    .route-desc { color: var(--doc-muted); margin-left: 6px; }
+    .route-comps { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+    /* 组件详解卡片 */
+    .comp-card {
+      background: var(--doc-surface);
+      border: 1px solid var(--doc-border);
+      border-radius: 14px;
+      margin-bottom: 22px;
+      overflow: hidden;
+      scroll-margin-top: 20px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+    .comp-head {
+      padding: 14px 20px;
+      background: #fcfcfd;
+      border-bottom: 1px solid var(--doc-border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .comp-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .comp-name { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: #0f172a; }
+    .comp-file {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--doc-subtle);
+      color: #475569;
+    }
+    .badge-client, .badge-server {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .badge-client { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-server { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+    .comp-meta {
+      padding: 10px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--doc-border);
+      font-size: 12px;
+      color: #475569;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .comp-meta strong { color: #1e293b; }
+    .ref-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      margin: 1px 2px;
+    }
+    .ref-pill:hover { border-color: #64748b; background: #f1f5f9; }
+
+    .comp-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    }
+    @media (max-width: 920px) {
+      .comp-grid { grid-template-columns: 1fr; }
+      .dom-pane { border-right: 0 !important; border-bottom: 1px solid var(--doc-border); }
+    }
+
+    .pane-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--doc-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 左栏：HTML DOM 盒模型结构图（Blueprint Box-Tree） */
+    .dom-pane {
+      padding: 16px 18px;
+      border-right: 1px solid var(--doc-border);
+      background: #fbfdff;
+      overflow-x: auto;
+    }
+    .dom-box {
+      border: 1px solid #cbd5e1;
+      border-left: 3px solid #475569;
+      border-radius: 7px;
+      padding: 7px 9px;
+      margin-top: 6px;
+      background: #ffffff;
+      font-size: 12px;
+    }
+    .dom-box:first-of-type { margin-top: 0; }
+    .dom-box.is-semantic { border-left-color: #2563eb; }
+    .dom-box.is-form { border-left-color: #059669; background: #fcfdfc; }
+    .dom-box.is-interactive { border-left-color: #7c3aed; }
+    .dom-box.is-svg { border-left-color: #db2777; background: #fffbfd; }
+    .dom-cond {
+      border: 1px dashed #f59e0b;
+      border-left: 3px solid #f59e0b;
+      border-radius: 7px;
+      padding: 6px 9px;
+      margin-top: 6px;
+      background: #fffbeb;
+      font-size: 11.5px;
+    }
+    .dom-cond-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: #b45309;
+      margin-bottom: 4px;
+    }
+    .dom-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+    .dom-tag {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11.5px;
+      color: #0f172a;
+      background: #f1f5f9;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .dom-box.is-semantic > .dom-line > .dom-tag { color: #1e40af; background: #dbeafe; }
+    .dom-box.is-form > .dom-line > .dom-tag { color: #065f46; background: #d1fae5; }
+    .dom-box.is-interactive > .dom-line > .dom-tag { color: #5b21b6; background: #ede9fe; }
+    .dom-box.is-svg > .dom-line > .dom-tag { color: #9d174d; background: #fce7f3; }
+
+    .dom-cls { font-family: var(--font-mono); font-size: 11px; color: #64748b; }
+    .dom-note { font-size: 11.5px; color: #334155; }
+    .dom-slot {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      margin-top: 5px;
+      border-radius: 5px;
+      background: #f5f3ff;
+      border: 1px dashed #8b5cf6;
+      color: #6d28d9;
+    }
+    .dom-children { padding-left: 8px; margin-top: 4px; }
+
+    /* 右栏：1:1 真实静态 HTML 界面绘制区 */
+    .preview-pane {
+      padding: 16px 18px;
+      background: #f4f6f9;
+      display: flex;
+      flex-direction: column;
+    }
+    .tc-canvas {
+      background: var(--tc-bg);
+      color: var(--tc-fg);
+      border: 1px solid var(--tc-border);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    .tc-canvas + .tc-canvas { margin-top: 10px; }
+    .tc-subcaption {
+      font-size: 11px;
+      color: var(--doc-muted);
+      margin: 8px 0 4px;
+      font-weight: 600;
+    }
+    .tc-subcaption:first-child { margin-top: 0; }
+
+    /* TokenConnection 真实组件 CSS 还原原子类 */
+    .tc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tc-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .tc-between-start { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .tc-stack-1 > * + * { margin-top: 4px; }
+    .tc-stack-2 > * + * { margin-top: 8px; }
+    .tc-stack-3 > * + * { margin-top: 12px; }
+    .tc-stack-4 > * + * { margin-top: 16px; }
+    .tc-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tc-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    @media (max-width: 560px) { .tc-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .tc-card { background: var(--tc-card); border: 1px solid var(--tc-border); border-radius: 12px; padding: 14px; }
+    .tc-dashed { border: 1px dashed var(--tc-border); border-radius: 12px; padding: 20px; text-align: center; color: var(--tc-muted-fg); font-size: 13.5px; }
+    .tc-muted { color: var(--tc-muted-fg); }
+    .tc-xs { font-size: 12px; }
+    .tc-2xs { font-size: 11px; }
+    .tc-sm { font-size: 13.5px; }
+    .tc-mono { font-family: var(--font-mono); }
+
+    /* Button 还原 */
+    .tc-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      border: 1px solid transparent; background: var(--tc-primary); color: var(--tc-primary-fg);
+      cursor: default; white-space: nowrap;
+    }
+    .tc-btn-outline { background: #fff; color: var(--tc-fg); border-color: var(--tc-border); }
+    .tc-btn-secondary { background: var(--tc-muted); color: var(--tc-fg); }
+    .tc-btn-ghost { background: transparent; color: var(--tc-fg); }
+    .tc-btn-destructive { background: #fee2e2; color: #b91c1c; }
+    .tc-btn-link { background: transparent; color: var(--tc-fg); text-decoration: underline; text-underline-offset: 3px; padding: 0 4px; }
+    .tc-btn-xs { height: 24px; padding: 0 8px; font-size: 11.5px; border-radius: 6px; }
+    .tc-btn-sm { height: 28px; padding: 0 9px; font-size: 12.5px; border-radius: 7px; }
+    .tc-btn-lg { height: 36px; padding: 0 12px; }
+    .tc-btn-icon { width: 32px; height: 32px; padding: 0; }
+    .tc-btn-icon-sm { width: 28px; height: 28px; padding: 0; }
+
+    /* Input / Select / Textarea 还原 */
+    .tc-input, .tc-select {
+      width: 100%; height: 32px; border: 1px solid var(--tc-border); border-radius: 8px;
+      padding: 0 10px; font-size: 13px; background: #fff; color: var(--tc-fg);
+    }
+    .tc-select { height: 36px; padding-right: 26px; }
+    .tc-textarea {
+      width: 100%; min-height: 58px; border: 1px solid var(--tc-border); border-radius: 8px;
+      padding: 7px 10px; font-size: 13px; background: #fff; color: var(--tc-fg); font-family: inherit;
+    }
+    .tc-field { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--tc-muted-fg); }
+
+    /* TierBadge 5 色还原 */
+    .tc-tier {
+      display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+      border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap;
+    }
+    .tier-best { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
+    .tier-close { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+    .tier-friends { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .tier-interacted { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+    .tier-known { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+
+    /* TagChip 3 类还原 */
+    .tc-chip {
+      display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px;
+      border-radius: 6px; font-size: 12px; border: 1px solid; white-space: nowrap;
+    }
+    .chip-skill { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+    .chip-circle { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+    .chip-other { background: #f9fafb; color: #374151; border-color: #e5e7eb; }
+    .chip-dashed { border-style: dashed; }
+
+    /* 分段控制器 */
+    .tc-seg {
+      display: inline-flex; border: 1px solid var(--tc-border); border-radius: 8px; padding: 2px; font-size: 12px; background: #fff;
+    }
+    .tc-seg span { padding: 3px 10px; border-radius: 6px; color: var(--tc-muted-fg); }
+    .tc-seg span.active { background: var(--tc-primary); color: var(--tc-primary-fg); font-weight: 500; }
+
+    /* 列表分隔 */
+    .tc-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--tc-border); border-radius: 12px; background: #fff; overflow: hidden; }
+    .tc-list > li { padding: 10px 12px; border-top: 1px solid var(--tc-border); }
+    .tc-list > li:first-child { border-top: 0; }
+
+    /* 时间线还原 */
+    .tc-timeline { list-style: none; margin: 0 0 0 8px; padding: 0 0 0 18px; border-left: 1px solid var(--tc-border); }
+    .tc-timeline li { position: relative; padding-bottom: 14px; }
+    .tc-timeline li:last-child { padding-bottom: 0; }
+    .tc-dot {
+      position: absolute; left: -23.5px; top: 5px; width: 10px; height: 10px;
+      border-radius: 999px; box-shadow: 0 0 0 3px #fff;
+    }
+  </style>
+</head>
+<body>
+<div class="doc-shell">
+  <!-- ==================== 左侧固定导航栏 ==================== -->
+  <aside class="doc-sidebar" aria-label="组件结构目录">
+    <div class="doc-brand">
+      <svg viewBox="284 122 256 256" aria-hidden="true">
+        <g fill="none" stroke="#6a2c3c" stroke-width="12" stroke-linecap="round">
+          <circle cx="412" cy="250" r="40" />
+          <circle cx="412" cy="250" r="80" />
+          <circle cx="412" cy="250" r="122" />
+        </g>
+        <g fill="#6a2c3c">
+          <circle cx="412" cy="250" r="9" />
+          <circle cx="456" cy="216" r="8" />
+          <circle cx="358" cy="292" r="8" />
+          <circle cx="490" cy="306" r="8" />
+        </g>
+      </svg>
+      <div>
+        <div class="doc-brand-title">朋友圈 · HTML 结构图谱</div>
+        <div class="doc-brand-sub">TokenConnection 组件级视图</div>
+      </div>
+    </div>
+
+    <input id="comp-search" type="search" class="doc-filter" placeholder="筛选组件名或文件路径…" aria-label="筛选组件" />
+
+    <div class="nav-group">
+      <div class="nav-group-title">0. 架构与路由组装</div>
+      <ul class="nav-list">
+        <li><a href="#sec-topology"><span>路由 → 组件全景拓扑</span><span class="nav-tag">25 页</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">1. 应用骨架与导航</div>
+      <ul class="nav-list">
+        <li><a href="#comp-root-layout"><code>RootLayout / NotFound</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-group-layouts"><code>AppLayout / AuthLayout</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-app-nav"><code>AppNav / BrandMark</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">2. 基础原子 UI 与徽章</div>
+      <ul class="nav-list">
+        <li><a href="#comp-button"><code>Button</code><span class="nav-tag">UI</span></a></li>
+        <li><a href="#comp-form-primitives"><code>Input / Textarea / NativeSelect</code><span class="nav-tag">UI</span></a></li>
+        <li><a href="#comp-empty-state"><code>EmptyState</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-tier-badge"><code>TierBadge</code><span class="nav-tag">5 级</span></a></li>
+        <li><a href="#comp-tag-chip"><code>TagChip</code><span class="nav-tag">3 类</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">3. 组合选择与标签词表</div>
+      <ul class="nav-list">
+        <li><a href="#comp-filter-combobox"><code>FilterCombobox / TagFilter</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-tag-combobox"><code>TagCombobox / Circle / Labels</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-primary-circle"><code>CircleField / LabelsField</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-tags-manager"><code>TagsManager</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">4. 万能输入与收件箱</div>
+      <ul class="nav-list">
+        <li><a href="#comp-universal-input"><code>UniversalInput</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-draft-card"><code>DraftCard</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-search-results"><code>SearchResults</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-inbox-pending"><code>InboxPendingList</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">5. 人脉名录、档案与时间线</div>
+      <ul class="nav-list">
+        <li><a href="#comp-people-filters"><code>PeopleFilters + 分页</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-person-card"><code>PersonCard</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-profile-modes"><code>ProfileModes / PersonPage</code><span class="nav-tag">混合</span></a></li>
+        <li><a href="#comp-person-edit"><code>PersonEditForm / DeleteBtn</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-timeline"><code>Timeline</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-append-input"><code>AppendInput</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">6. 回访计划与联系提醒</div>
+      <ul class="nav-list">
+        <li><a href="#comp-followup-plan"><code>FollowUpPlan</code><span class="nav-tag">RSC</span></a></li>
+        <li><a href="#comp-reminder-list"><code>ReminderList / DueReminders</code><span class="nav-tag">RSC</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">7. 关系网与地理地图</div>
+      <ul class="nav-list">
+        <li><a href="#comp-network-map"><code>NetworkMap</code><span class="nav-tag">SVG</span></a></li>
+        <li><a href="#comp-geo-map"><code>GeoMap / ClusterPanel</code><span class="nav-tag">SVG</span></a></li>
+        <li><a href="#comp-person-popover"><code>PersonPopover</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">8. 人脉快照分享流</div>
+      <ul class="nav-list">
+        <li><a href="#comp-share-panel"><code>ShareButton (Dialog)</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-shares-lists"><code>ReceivedShares / SentShares</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-public-share"><code>PublicShareCard</code><span class="nav-tag">Client</span></a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">9. 认证、安全与管理后台</div>
+      <ul class="nav-list">
+        <li><a href="#comp-auth-forms"><code>AuthForm / ResetPasswordForm</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-passkey"><code>PasskeyLogin / PasskeyManager</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-two-factor"><code>TotpSetup / TwoFactorForm</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-account-danger"><code>AccountDanger</code><span class="nav-tag">Client</span></a></li>
+        <li><a href="#comp-settings-admin"><code>设置中心与管理后台页结构</code><span class="nav-tag">RSC</span></a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ==================== 右侧主画布 ==================== -->
+  <main class="doc-main">
+    <header class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>TokenConnection（「朋友圈」）组件 HTML 结构图谱</h1>
+          <p>
+            基于仓库 <code>src/components/**</code> 与 <code>src/app/**</code> 真实源码绘制。每个组件均拆解为左栏<strong>「语义化 HTML DOM 盒模型框图」</strong>与右栏<strong>「1:1 静态 HTML 视觉还原」</strong>，所有示例人物均为虚构数据，页面完全自包含、零外部脚本依赖。
+          </p>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-num">38 + 1</div>
+          <div class="stat-label">组件模块文件（<code>src/components</code> + <code>reset-form</code>）</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">3 + 25</div>
+          <div class="stat-label">布局容器（Layouts）与页面路由（Pages）</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">9 大域</div>
+          <div class="stat-label">骨架 / 原子 / 词表 / 录入 / 档案 / 提醒 / 地图 / 分享 / 认证</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">响应式双态</div>
+          <div class="stat-label">桌面顶栏侧板（<code>md:</code>）+ 手机底栏抽屉（<code>&lt;md</code>）</div>
+        </div>
+      </div>
+
+      <div class="legend-bar">
+        <span class="legend-item"><strong style="color:#1e40af;">蓝色左框</strong> 语义化地标元素（header / nav / main / section / article / ol）</span>
+        <span class="legend-item"><strong style="color:#065f46;">绿色左框</strong> 表单与输入控件（form / fieldset / input / select / textarea）</span>
+        <span class="legend-item"><strong style="color:#5b21b6;">紫色左框</strong> 交互触发器与弹层（button / details / role="dialog" / listbox）</span>
+        <span class="legend-item"><strong style="color:#b45309;">琥珀虚线框</strong> 条件渲染或状态机分支（<code>? condition</code>）</span>
+        <span class="legend-item"><strong style="color:#9d174d;">玫红左框</strong> SVG 矢量画布与几何图元（svg / g / circle / path）</span>
+      </div>
+    </header>
+
+    <!-- ==================== 0. 路由与页面组装全景拓扑 ==================== -->
+    <section id="sec-topology" class="group-section">
+      <div class="group-header">
+        <h2>0. 路由与页面组装全景拓扑（Pages → Components）</h2>
+        <span>展示 <code>RootLayout</code> 下三大路由分支如何拼装全站组件</span>
+      </div>
+
+      <div class="topology-grid">
+        <div class="topo-card">
+          <div class="topo-title">
+            <span>主应用路由组 <code>src/app/(app)/</code></span>
+            <span class="badge-server">包裹 AppNav + &lt;main&gt;</span>
+          </div>
+          <ul class="topo-route-list">
+            <li>
+              <span class="route-path">/</span><span class="route-desc">首页（记人 / 找人 / 提醒 / 待处理）</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-universal-input">UniversalInput</a>
+                <a class="ref-pill" href="#comp-reminder-list">DueReminders</a>
+                <a class="ref-pill" href="#comp-inbox-pending">InboxPendingList</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/people</span><span class="route-desc">人脉列表（每页 8 人 + 筛选 + 底部提醒）</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-people-filters">PeopleFilters</a>
+                <a class="ref-pill" href="#comp-person-card">PersonCard</a>
+                <a class="ref-pill" href="#comp-empty-state">EmptyState</a>
+                <a class="ref-pill" href="#comp-reminder-list">DueReminders</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/people/[id]</span><span class="route-desc">人物详情（查看态 / 编辑态原地切换）</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-profile-modes">ProfileModes</a>
+                <a class="ref-pill" href="#comp-share-panel">ShareButton</a>
+                <a class="ref-pill" href="#comp-person-edit">PersonEditForm</a>
+                <a class="ref-pill" href="#comp-followup-plan">FollowUpPlan</a>
+                <a class="ref-pill" href="#comp-append-input">AppendInput</a>
+                <a class="ref-pill" href="#comp-timeline">Timeline</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/map</span><span class="route-desc">人脉地图（<code>?view=radial</code> 关系网 / <code>?view=geo</code> 地理 + 未定位）</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-network-map">NetworkMap</a>
+                <a class="ref-pill" href="#comp-geo-map">GeoMap</a>
+                <a class="ref-pill" href="#comp-person-popover">PersonPopover</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/inbox · /reminders · /tags</span><span class="route-desc">收件箱三态 / 全部提醒 / 圈子和标签</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-inbox-pending">InboxPendingList</a>
+                <a class="ref-pill" href="#comp-reminder-list">ReminderList</a>
+                <a class="ref-pill" href="#comp-tags-manager">TagsManager</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/shared · /shares</span><span class="route-desc">收到的分享 / 我发出的分享</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-shares-lists">ReceivedShares</a>
+                <a class="ref-pill" href="#comp-shares-lists">SentShares</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="topo-card">
+          <div class="topo-title">
+            <span>设置与管理后台 <code>(app)/settings &amp; admin</code></span>
+            <span class="badge-server">Server Actions 驱动</span>
+          </div>
+          <ul class="topo-route-list">
+            <li>
+              <span class="route-path">/settings</span><span class="route-desc">「我」总入口（头像 + 回访开关 + 库/账号/管理分组卡片）</span>
+              <div class="route-comps"><a class="ref-pill" href="#comp-settings-admin">SettingsPage</a></div>
+            </li>
+            <li>
+              <span class="route-path">/settings/account</span><span class="route-desc">修改资料 + ZIP 导出与注销账号</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-auth-forms">AuthForm</a>
+                <a class="ref-pill" href="#comp-account-danger">AccountDanger</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/settings/security</span><span class="route-desc">改密码 + Passkey 管理 + TOTP 两步验证</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-auth-forms">AuthForm</a>
+                <a class="ref-pill" href="#comp-passkey">PasskeyManager</a>
+                <a class="ref-pill" href="#comp-two-factor">TotpSetup</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/settings/sessions · /tokens · /privacy</span><span class="route-desc">设备会话 / PAT 令牌 / 模型配额与脱敏开关</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-auth-forms">AuthForm</a>
+                <a class="ref-pill" href="#comp-settings-admin">列表与开关表单</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/admin/users · /invites · /audit · /settings</span><span class="route-desc">用户管控 / 邀请码 / 动作审计 / 实例配额只读面板</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-auth-forms">AuthForm</a>
+                <a class="ref-pill" href="#comp-settings-admin">AdminPages</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="topo-card">
+          <div class="topo-title">
+            <span>认证组 <code>(auth)/</code> 与公开路由</span>
+            <span class="badge-client">居中卡片壳</span>
+          </div>
+          <ul class="topo-route-list">
+            <li>
+              <span class="route-path">/setup</span><span class="route-desc">首次启动创建首个管理员并归属存量人脉</span>
+              <div class="route-comps"><a class="ref-pill" href="#comp-auth-forms">AuthForm</a></div>
+            </li>
+            <li>
+              <span class="route-path">/login</span><span class="route-desc">账号密码登录 + Passkey 登录 + 找回/注册入口</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-auth-forms">AuthForm</a>
+                <a class="ref-pill" href="#comp-passkey">PasskeyLoginButton</a>
+              </div>
+            </li>
+            <li>
+              <span class="route-path">/register · /forgot-password</span><span class="route-desc">邀请码校验注册 / 邮件或管理员重置提示</span>
+              <div class="route-comps"><a class="ref-pill" href="#comp-auth-forms">AuthForm</a></div>
+            </li>
+            <li>
+              <span class="route-path">/reset-password · /reset-password/[token]</span><span class="route-desc">令牌重定向与双次新密码提交</span>
+              <div class="route-comps"><a class="ref-pill" href="#comp-auth-forms">ResetPasswordForm</a></div>
+            </li>
+            <li>
+              <span class="route-path">/two-factor</span><span class="route-desc">6 位验证码 + 30 天信任设备 + 一次性恢复码</span>
+              <div class="route-comps"><a class="ref-pill" href="#comp-two-factor">TwoFactorForm</a></div>
+            </li>
+            <li>
+              <span class="route-path">/s/[token] · not-found.tsx</span><span class="route-desc">外部访客只读分享快照页（无导航壳）/ 404 空页</span>
+              <div class="route-comps">
+                <a class="ref-pill" href="#comp-public-share">PublicShareCard</a>
+                <a class="ref-pill" href="#comp-root-layout">NotFound</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 1. 应用骨架与全局导航 ==================== -->
+    <section id="sec-shell" class="group-section">
+      <div class="group-header">
+        <h2>1. 应用骨架与全局导航（Shell &amp; Layouts）</h2>
+        <span>负责根 HTML 文档、路由分组外壳以及桌面顶栏 / 手机四格底栏切换</span>
+      </div>
+
+      <!-- 1.1 RootLayout & NotFound -->
+      <article id="comp-root-layout" class="comp-card" data-search="RootLayout NotFound src/app/layout.tsx src/app/not-found.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;RootLayout /&gt; &amp; &lt;NotFound /&gt;</span>
+            <span class="comp-file">src/app/layout.tsx · src/app/not-found.tsx</span>
+          </div>
+          <span class="badge-server">Server Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>注入全局中文无衬线字体栈、PWA Manifest 元信息及全高弹性列 <code>&lt;body&gt;</code>；处理全局 404 视图。</span>
+          <span><strong>包裹对象：</strong><code>(app)</code>、<code>(auth)</code>、<code>/s/[token]</code> 全部页面</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>Root &amp; 404</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;html lang="zh-CN"&gt;</span><span class="dom-cls">h-full antialiased</span></div>
+              <div class="dom-children">
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;body&gt;</span><span class="dom-cls">min-h-full flex flex-col bg-background text-foreground</span></div>
+                  <div class="dom-children">
+                    <span class="dom-slot">↳ {children}（AppLayout / AuthLayout / PublicSharePage）</span>
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? 404 未匹配或 loadPerson 返回 null → &lt;NotFound /&gt;</div>
+                      <div class="dom-box is-semantic">
+                        <div class="dom-line"><span class="dom-tag">&lt;main&gt;</span><span class="dom-cls">mx-auto flex max-w-3xl flex-1 flex-col items-center justify-center gap-3 p-8 text-center</span></div>
+                        <div class="dom-children">
+                          <div class="dom-box"><span class="dom-tag">&lt;h1&gt;</span> <span class="dom-note">“页面不存在”</span></div>
+                          <div class="dom-box"><span class="dom-tag">&lt;p&gt;</span> <span class="dom-note">“这个人或页面可能已经被删除。”</span></div>
+                          <div class="dom-box is-interactive"><span class="dom-tag">&lt;a href="/"&gt;</span> <span class="dom-note">“回到首页”</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>NotFound 404 态</span></div>
+            <div class="tc-canvas" style="text-align:center; padding:32px 20px;">
+              <div style="font-size:18px; font-weight:600;">页面不存在</div>
+              <p class="tc-sm tc-muted" style="margin:8px 0 12px;">这个人或页面可能已经被删除。</p>
+              <span class="tc-sm" style="text-decoration:underline; text-underline-offset:3px;">回到首页</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 1.2 AppLayout & AuthLayout -->
+      <article id="comp-group-layouts" class="comp-card" data-search="AppLayout AuthLayout src/app/(app)/layout.tsx src/app/(auth)/layout.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;AppLayout /&gt; &amp; &lt;AuthLayout /&gt;</span>
+            <span class="comp-file">src/app/(app)/layout.tsx · src/app/(auth)/layout.tsx</span>
+          </div>
+          <span class="badge-server">Server Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>AppLayout：</strong>服务端查询当前用户资料与收件箱待处理数 <code>pendingCount</code>，渲染 <code>&lt;AppNav&gt;</code> 与主内容区（手机底部预留 <code>pb-24</code> 避让固定底栏）。</span>
+          <span><strong>AuthLayout：</strong>居中 <code>max-w-md</code> 品牌抬头 + 圆角卡片容器。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>双路由组外壳对比</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">Fragment (AppLayout)</span></div>
+              <div class="dom-children">
+                <a class="dom-slot" href="#comp-app-nav">↳ &lt;AppNav pendingCount={pendingCount} user={profile} /&gt;</a>
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;main&gt;</span><span class="dom-cls">mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-24 md:pt-6 md:pb-10</span></div>
+                  <div class="dom-children"><span class="dom-slot">↳ {children}（各业务页面）</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dom-box" style="margin-top:10px;">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (AuthLayout)</span><span class="dom-cls">flex min-h-full flex-1 items-center justify-center px-4 py-10</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">w-full max-w-md space-y-6</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">text-center</span></div>
+                      <div class="dom-note"><code>&lt;p&gt;</code>“朋友圈” + <code>&lt;p&gt;</code>“一句话记人，一句话找人”</div>
+                    </div>
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">rounded-xl border bg-card p-5 shadow-sm</span></div>
+                      <span class="dom-slot">↳ {children}（Login / Register / Setup / 2FA）</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>AuthLayout 居中认证壳</span></div>
+            <div class="tc-canvas" style="background:#fafafa; padding:22px;">
+              <div style="max-width:320px; margin:0 auto;" class="tc-stack-3">
+                <div style="text-align:center;">
+                  <div style="font-size:16px; font-weight:600;">朋友圈</div>
+                  <div class="tc-xs tc-muted">一句话记人，一句话找人</div>
+                </div>
+                <div class="tc-card" style="box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                  <div class="tc-dashed" style="padding:14px;">{children} 认证表单挂载槽</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 1.3 AppNav -->
+      <article id="comp-app-nav" class="comp-card" data-search="AppNav BrandMark src/components/app-nav.tsx 顶栏 底栏 导航">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;AppNav /&gt; &amp; &lt;BrandMark /&gt;</span>
+            <span class="comp-file">src/components/app-nav.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>Props：</strong><code>pendingCount: number</code>, <code>user?: { name, username, role } | null</code></span>
+          <span><strong>父级：</strong><a class="ref-pill" href="#comp-group-layouts">AppLayout</a></span>
+          <span><strong>特征：</strong>桌面端 5 项（含「分享」）+ 原生 <code>&lt;details&gt;</code> 头像下拉菜单；手机端固定底部 4 格 Tab（「分享」<code>desktopOnly</code> 隐藏，「设置」改显「我」并挂待处理角标）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>桌面 Header + 手机固定 Nav</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;header&gt;</span><span class="dom-cls">sticky top-0 z-40 hidden border-b md:block</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">mx-auto flex h-12 max-w-6xl items-center gap-6 px-4</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box is-interactive">
+                      <div class="dom-line"><span class="dom-tag">&lt;a href="/"&gt;</span><span class="dom-note">内嵌同心圆点 <code>&lt;svg&gt;</code> (BrandMark) + “朋友圈”</span></div>
+                    </div>
+                    <div class="dom-box is-semantic">
+                      <div class="dom-line"><span class="dom-tag">&lt;nav&gt;</span><span class="dom-cls">flex items-center gap-1 text-sm</span></div>
+                      <div class="dom-note">5 个 <code>&lt;a&gt;</code>：首页 / 人脉 / 地图 / 分享 / 设置（<code>pendingCount &gt; 0</code> 时附胶囊 <code>&lt;span&gt;</code>）</div>
+                    </div>
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? user 存在 → 原生免 JS 折叠下拉菜单</div>
+                      <div class="dom-box is-interactive">
+                        <div class="dom-line"><span class="dom-tag">&lt;details&gt;</span><span class="dom-cls">relative ml-auto</span></div>
+                        <div class="dom-children">
+                          <div class="dom-box"><span class="dom-tag">&lt;summary&gt;</span> <span class="dom-note">圆形首字头像 <code>size-8 rounded-full bg-primary</code></span></div>
+                          <div class="dom-box">
+                            <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">absolute right-0 z-50 mt-2 w-44 rounded-lg border bg-popover</span></div>
+                            <div class="dom-note">姓名/@用户名 + 设置 / 安全 / API 令牌 / <code>?admin</code> 管理后台 + <code>&lt;form action={logoutAction}&gt;&lt;button&gt;</code>退出登录</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dom-box is-semantic" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;nav&gt;</span><span class="dom-cls">fixed inset-x-0 bottom-0 z-40 border-t md:hidden</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;ul&gt;</span><span class="dom-cls">mx-auto grid max-w-3xl grid-cols-4</span></div>
+                  <div class="dom-note">4 个 <code>&lt;li&gt;&lt;a&gt;</code>：Lucide 图标 <code>&lt;svg&gt;</code> + <code>&lt;span&gt;</code>（首页 / 人脉 / 地图 / 我）+ 右上角绝对定位角标 <code>&lt;span&gt;</code></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>桌面顶栏（展开菜单）与手机底栏</span></div>
+            <div class="tc-subcaption">桌面端 &lt;header&gt;（md 及以上）</div>
+            <div class="tc-canvas" style="padding:0; overflow:visible;">
+              <div style="display:flex; align-items:center; gap:16px; height:48px; padding:0 14px; border-bottom:1px solid var(--tc-border);">
+                <span style="display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:14px;">
+                  <svg width="18" height="18" viewBox="284 122 256 256"><g fill="none" stroke="#6a2c3c" stroke-width="14"><circle cx="412" cy="250" r="40"/><circle cx="412" cy="250" r="80"/><circle cx="412" cy="250" r="120"/></g><circle cx="412" cy="250" r="12" fill="#6a2c3c"/></svg>
+                  朋友圈
+                </span>
+                <div style="display:flex; align-items:center; gap:4px; font-size:13px;">
+                  <span style="padding:4px 9px; border-radius:6px; background:var(--tc-muted); font-weight:500;">首页</span>
+                  <span style="padding:4px 9px; color:var(--tc-muted-fg);">人脉</span>
+                  <span style="padding:4px 9px; color:var(--tc-muted-fg);">地图</span>
+                  <span style="padding:4px 9px; color:var(--tc-muted-fg);">分享</span>
+                  <span style="padding:4px 9px; color:var(--tc-muted-fg);">设置 <b style="background:var(--tc-primary); color:#fff; border-radius:999px; padding:1px 6px; font-size:10px;">2</b></span>
+                </div>
+                <span style="margin-left:auto; width:30px; height:30px; border-radius:999px; background:var(--tc-primary); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px;">陈</span>
+              </div>
+              <div style="padding:10px 14px; display:flex; justify-content:flex-end; background:#fafafa; border-radius:0 0 12px 12px;">
+                <div style="width:176px; border:1px solid var(--tc-border); border-radius:8px; background:#fff; padding:4px; font-size:12.5px; box-shadow:0 4px 10px rgba(0,0,0,0.06);">
+                  <div style="padding:5px 8px; border-bottom:1px solid #f1f5f9;">
+                    <div style="font-weight:600;">陈默</div>
+                    <div class="tc-2xs tc-muted">@chenmo</div>
+                  </div>
+                  <div style="padding:5px 8px;">设置</div>
+                  <div style="padding:5px 8px;">安全</div>
+                  <div style="padding:5px 8px;">API 令牌</div>
+                  <div style="padding:5px 8px;">管理后台</div>
+                  <div style="padding:5px 8px; color:var(--tc-muted-fg);">退出登录</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tc-subcaption">手机端 &lt;nav&gt; 四格底栏（md 以下）</div>
+            <div class="tc-canvas" style="padding:6px 8px;">
+              <div style="display:grid; grid-template-columns:repeat(4,1fr); text-align:center; font-size:11px;">
+                <div style="padding:4px 0; font-weight:600;">
+                  <div>⌂</div><div>首页</div>
+                </div>
+                <div style="padding:4px 0; color:var(--tc-muted-fg);">
+                  <div>♟</div><div>人脉</div>
+                </div>
+                <div style="padding:4px 0; color:var(--tc-muted-fg);">
+                  <div>◎</div><div>地图</div>
+                </div>
+                <div style="padding:4px 0; color:var(--tc-muted-fg); position:relative;">
+                  <div>◯ <span style="background:var(--tc-primary); color:#fff; border-radius:999px; padding:0 5px; font-size:10px;">2</span></div>
+                  <div>我</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 2. 基础原子 UI 与徽章原语 ==================== -->
+    <section id="sec-primitives" class="group-section">
+      <div class="group-header">
+        <h2>2. 基础原子 UI 与徽章原语（UI Primitives &amp; Badges）</h2>
+        <span>全站表单、卡片、列表共享的底层控件与色彩语义标签</span>
+      </div>
+
+      <!-- 2.1 Button -->
+      <article id="comp-button" class="comp-card" data-search="Button src/components/ui/button.tsx 按钮 variant size">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;Button /&gt;</span>
+            <span class="comp-file">src/components/ui/button.tsx</span>
+          </div>
+          <span class="badge-server">Base UI Primitive + CVA</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>变体（6 种）：</strong><code>default | outline | secondary | ghost | destructive | link</code></span>
+          <span><strong>尺寸（8 种）：</strong><code>default (h-8) | xs (h-6) | sm (h-7) | lg (h-9) | icon | icon-xs | icon-sm | icon-lg</code></span>
+          <span><strong>多态渲染：</strong>支持 <code>render={&lt;Link href="..." /&gt;}</code> 渲染为语义化 <code>&lt;a&gt;</code></span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>button / a 多态节点</span></div>
+            <div class="dom-box is-interactive">
+              <div class="dom-line"><span class="dom-tag">&lt;button data-slot="button"&gt;</span><span class="dom-cls">inline-flex items-center justify-center rounded-lg text-sm font-medium</span></div>
+              <div class="dom-children">
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? 传入 nativeButton={false} render={&lt;Link /&gt;}</div>
+                  <div class="dom-note">DOM 实际输出为 <code>&lt;a data-slot="button" href="..."&gt;</code>（用于分页按钮、「查看详情」等）</div>
+                </div>
+                <div class="dom-box"><span class="dom-tag">[可选 &lt;svg&gt;]</span> + <span class="dom-note">按钮文案</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>6 种 Variant 与常用尺寸</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-row">
+                <span class="tc-btn">default 主按钮</span>
+                <span class="tc-btn tc-btn-outline">outline 描边</span>
+                <span class="tc-btn tc-btn-secondary">secondary 次级</span>
+                <span class="tc-btn tc-btn-ghost">ghost 幽灵</span>
+                <span class="tc-btn tc-btn-destructive">destructive 危险</span>
+                <span class="tc-btn tc-btn-link">link 链接 →</span>
+              </div>
+              <div class="tc-row">
+                <span class="tc-btn tc-btn-outline tc-btn-xs">+ 微信 (xs)</span>
+                <span class="tc-btn tc-btn-outline tc-btn-sm">编辑 (sm)</span>
+                <span class="tc-btn">确认入库 (default)</span>
+                <span class="tc-btn tc-btn-lg">筛选 (lg)</span>
+                <span class="tc-btn tc-btn-icon" title="icon">↑</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2.2 Input / Textarea / NativeSelect -->
+      <article id="comp-form-primitives" class="comp-card" data-search="Input Textarea NativeSelect src/components/ui/input.tsx textarea.tsx native-select.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;Input /&gt; · &lt;Textarea /&gt; · &lt;NativeSelect /&gt;</span>
+            <span class="comp-file">src/components/ui/input.tsx · textarea.tsx · native-select.tsx</span>
+          </div>
+          <span class="badge-server">Form Primitives</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>设计考量：</strong>手机端字号设为 <code>text-base (16px)</code> 防止 iOS Safari 聚焦自动放大页面，桌面端回落为 <code>md:text-sm</code>；<code>NativeSelect</code> 采用内联 SVG 箭头背景的原生 <code>&lt;select&gt;</code> 保障移动端系统滚轮体验与纯 GET 表单兼容。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>三类原生表单控件封装</span></div>
+            <div class="dom-box is-form">
+              <div class="dom-line"><span class="dom-tag">&lt;input data-slot="input" /&gt;</span><span class="dom-cls">h-8 w-full rounded-lg border border-input px-2.5</span></div>
+            </div>
+            <div class="dom-box is-form">
+              <div class="dom-line"><span class="dom-tag">&lt;textarea data-slot="textarea"&gt;</span><span class="dom-cls">field-sizing-content min-h-16 w-full rounded-lg border px-2.5 py-2</span></div>
+            </div>
+            <div class="dom-box is-form">
+              <div class="dom-line"><span class="dom-tag">&lt;select&gt; (NativeSelect)</span><span class="dom-cls">h-9 w-full appearance-none rounded-lg border bg-background px-3 pr-8</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;option value="..."&gt;</span> <span class="dom-note">选项列表</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>输入框 / 多行文本 / 原生下拉</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <input class="tc-input" type="text" value="小王 / 深圳南山" readonly aria-label="Input 示例" />
+              <select class="tc-select" aria-label="NativeSelect 示例">
+                <option>Close friends</option>
+                <option>Friends</option>
+              </select>
+              <textarea class="tc-textarea" rows="2" readonly aria-label="Textarea 示例">羽毛球教练，在深圳带成人班，性格爽快靠谱。</textarea>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2.3 EmptyState -->
+      <article id="comp-empty-state" class="comp-card" data-search="EmptyState src/components/empty-state.tsx 空状态">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;EmptyState /&gt;</span>
+            <span class="comp-file">src/components/empty-state.tsx</span>
+          </div>
+          <span class="badge-server">Server Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>复用位置：</strong>人脉列表、收件箱待处理、圈子与标签、时间线、提醒列表、双地图空库态、收发分享列表（共 9 处）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>虚线居中空态盒</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground</span></div>
+              <div class="dom-children"><span class="dom-note">{children} 空态引导文案</span></div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>空态卡片</span></div>
+            <div class="tc-canvas">
+              <div class="tc-dashed">没有待处理的记录。手机上记的内容会出现在这里。</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2.4 TierBadge -->
+      <article id="comp-tier-badge" class="comp-card" data-search="TierBadge src/components/tier-badge.tsx 关系远近 Best Bros">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;TierBadge /&gt;</span>
+            <span class="comp-file">src/components/tier-badge.tsx</span>
+          </div>
+          <span class="badge-server">Server / Shared Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>Props：</strong><code>tier: "best_bros" | "close_friends" | "friends" | "interacted" | "known_of"</code></span>
+          <span><strong>规范：</strong>关系远近保留英文原名（<code>design.md §7.1</code>），暖色代表亲近、冷灰代表仅听说。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>内联胶囊徽章</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;span title="关系远近"&gt;</span><span class="dom-cls">inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[11px] font-medium ring-1 ring-inset {TIER_CLASSES[tier]}</span></div>
+              <div class="dom-children"><span class="dom-note">{TIER_LABEL[tier]}</span></div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>全部 5 级关系色阶</span></div>
+            <div class="tc-canvas">
+              <div class="tc-row">
+                <span class="tc-tier tier-best">Best Bros</span>
+                <span class="tc-tier tier-close">Close friends</span>
+                <span class="tc-tier tier-friends">Friends</span>
+                <span class="tc-tier tier-interacted">Interacted contacts</span>
+                <span class="tc-tier tier-known">People I know of</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2.5 TagChip -->
+      <article id="comp-tag-chip" class="comp-card" data-search="TagChip src/components/tag-chip.tsx 标签 圈子 能力">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;TagChip /&gt;</span>
+            <span class="comp-file">src/components/tag-chip.tsx</span>
+          </div>
+          <span class="badge-server">Server / Shared Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>Props：</strong><code>name: string</code>, <code>kind: "skill" | "circle" | "other"</code>, <code>href?: string</code>, <code>onRemove?: () =&gt; void</code></span>
+          <span><strong>复用位置：</strong><code>PersonCard</code>、<code>PersonPage</code>、<code>PersonPopover</code>、<code>CirclePicker</code>、<code>LabelsPicker</code></span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>只读 / 跳转链接 / 可删除三态</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;span title={TAG_KIND_LABEL[kind]}&gt;</span><span class="dom-cls">inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-xs {KIND_CLASSES[kind]}</span></div>
+              <div class="dom-children">
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? href 存在 → &lt;a href={href}&gt;{name}&lt;/a&gt; : 纯文本 {name}</div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? onRemove 存在（表单选择器内）</div>
+                  <div class="dom-box is-interactive">
+                    <span class="dom-tag">&lt;button type="button" aria-label="移除标签 {name}"&gt;</span> <span class="dom-note">×</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>圈子（绿）/ 能力（靛）/ 其他（灰）/ 分享新标签（虚线）</span></div>
+            <div class="tc-canvas">
+              <div class="tc-row">
+                <span class="tc-chip chip-circle" title="圈子">球友</span>
+                <span class="tc-chip chip-skill" title="能力">羽毛球</span>
+                <span class="tc-chip chip-skill" title="能力">合同审查 <b style="opacity:0.6; margin-left:2px;">×</b></span>
+                <span class="tc-chip chip-other" title="其他">夜猫子</span>
+                <span class="tc-chip chip-skill chip-dashed" title="分享引入的新标签">知识产权 <b style="opacity:0.6;">×</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 3. 组合选择与标签词表 ==================== -->
+    <section id="sec-combobox" class="group-section">
+      <div class="group-header">
+        <h2>3. 组合选择与标签词表（Combobox &amp; Vocabulary Pickers）</h2>
+        <span>遵循「只能在设置中新建词表，表单中只搜索不新建」规则的 ARIA Combobox 家族</span>
+      </div>
+
+      <!-- 3.1 FilterCombobox & TagFilterCombobox -->
+      <article id="comp-filter-combobox" class="comp-card" data-search="FilterCombobox TagFilterCombobox src/components/filter-combobox.tsx tag-filter-combobox.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;FilterCombobox /&gt; &amp; &lt;TagFilterCombobox /&gt;</span>
+            <span class="comp-file">src/components/filter-combobox.tsx · tag-filter-combobox.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>双工作模式：</strong>① <strong>Form 模式</strong>（传 <code>name</code>，用于 <code>PeopleFilters</code>）：写隐藏 <code>&lt;input type="hidden"&gt;</code> 并触发 <code>form.requestSubmit()</code>；② <strong>受控模式</strong>（用于 <code>NetworkMap</code> / <code>GeoMap</code> 内存实时过滤）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>ARIA Combobox + Listbox</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div ref={rootRef}&gt;</span><span class="dom-cls">relative</span></div>
+              <div class="dom-children">
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? name 存在（Form 模式）</div>
+                  <div class="dom-box is-form"><span class="dom-tag">&lt;input type="hidden" name={name} value={formValue} /&gt;</span></div>
+                </div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;input type="text" role="combobox" /&gt;</span><span class="dom-cls">h-9 w-full rounded-lg border px-3 text-sm</span></div>
+                  <div class="dom-note"><code>aria-expanded={open}</code> · <code>aria-controls={listId}</code> · 键盘上下键/回车/Esc 控制</div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? open === true → 绝对定位选项弹层</div>
+                  <div class="dom-box is-interactive">
+                    <div class="dom-line"><span class="dom-tag">&lt;ul id={listId} role="listbox"&gt;</span><span class="dom-cls">absolute inset-x-0 top-full z-20 mt-1 max-h-72 rounded-lg border bg-popover p-1 shadow-md</span></div>
+                    <div class="dom-children">
+                      <div class="dom-box"><span class="dom-tag">&lt;li role="option" aria-selected&gt;</span> <span class="dom-note"><code>&lt;span&gt;</code>{label}（{count}）+ <code>?hint</code> 右侧灰色“圈子”提示</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>展开态 TagFilterCombobox</span></div>
+            <div class="tc-canvas" style="background:#fafafa;">
+              <div style="max-width:260px;">
+                <input class="tc-input" style="height:36px;" value="全部标签（输入搜索）" readonly aria-label="标签搜索示例" />
+                <ul style="list-style:none; margin:4px 0 0; padding:4px; border:1px solid var(--tc-border); border-radius:8px; background:#fff; font-size:13px; box-shadow:0 4px 10px rgba(0,0,0,0.06);">
+                  <li style="padding:5px 8px; border-radius:6px; background:var(--tc-muted); font-weight:500;">全部标签</li>
+                  <li style="padding:5px 8px; display:flex; justify-content:space-between;"><span>球友（6）</span><span class="tc-xs tc-muted">圈子</span></li>
+                  <li style="padding:5px 8px; display:flex; justify-content:space-between;"><span>羽毛球（4）</span></li>
+                  <li style="padding:5px 8px; display:flex; justify-content:space-between;"><span>法律咨询（2）</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3.2 TagCombobox / CirclePicker / LabelsPicker -->
+      <article id="comp-tag-combobox" class="comp-card" data-search="TagCombobox CirclePicker LabelsPicker SettingsHint src/components/tag-combobox.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;TagCombobox /&gt; · &lt;CirclePicker /&gt; · &lt;LabelsPicker /&gt;</span>
+            <span class="comp-file">src/components/tag-combobox.tsx</span>
+          </div>
+          <span class="badge-client">Client Component + useTagVocabulary()</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>复用位置：</strong><a class="ref-pill" href="#comp-draft-card">DraftCard</a>、<a class="ref-pill" href="#comp-person-edit">PersonEditForm</a>、<a class="ref-pill" href="#comp-primary-circle">CircleField / LabelsField</a></span>
+          <span><strong>核心约束：</strong>每人最多单选 1 个 <code>circle</code>（<code>CirclePicker</code>），可多选多个 <code>skill / other</code>（<code>LabelsPicker</code>）；分享卡片引入本地未定义的标签时（<code>markMissing=true</code>）显示虚线框 +「新建」提示。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>CirclePicker &amp; LabelsPicker</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (CirclePicker)</span><span class="dom-cls">flex min-w-0 flex-1 flex-wrap items-center gap-2</span></div>
+              <div class="dom-children">
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? circles 为空且无当前值 → &lt;SettingsHint noun="圈子" /&gt;</div>
+                </div>
+                <div class="dom-box"><span class="dom-tag">&lt;span&gt;</span> <span class="dom-note">已选时渲染 <code>&lt;TagChip kind="circle" onRemove /&gt;</code>（缺词表时附“新建”）；未选时渲染“未分类”</span></div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;TagCombobox noun="圈子" /&gt;</span><span class="dom-cls">min-w-40 flex-1</span></div>
+                  <div class="dom-note"><code>&lt;Input role="combobox" /&gt;</code> + 展开层 <code>&lt;ul role="listbox"&gt;</code>（无匹配时渲染跳转 <code>/tags</code> 引导语）</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dom-box" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (LabelsPicker)</span><span class="dom-cls">space-y-2</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;div&gt;</span> <span class="dom-note"><code>flex flex-wrap gap-1.5</code>：遍历已选标签渲染 <code>&lt;TagChip onRemove /&gt;</code> 或“暂无标签”</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;TagCombobox noun="标签" /&gt;</span> <span class="dom-note">过滤掉已选标签后的候选下拉</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>单圈子选择 + 多标签选择 + 无匹配引导</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-row">
+                <span class="tc-chip chip-circle">球友 <b style="opacity:0.6;">×</b></span>
+                <input class="tc-input" style="flex:1; min-width:150px;" placeholder="搜索并换一个圈子" readonly />
+              </div>
+              <div class="tc-stack-2">
+                <div class="tc-row">
+                  <span class="tc-chip chip-skill">羽毛球 <b style="opacity:0.6;">×</b></span>
+                  <span class="tc-chip chip-skill chip-dashed">体能训练 <b style="opacity:0.6;">×</b></span>
+                  <span class="tc-2xs tc-muted">新建</span>
+                </div>
+                <div>
+                  <input class="tc-input" value="网球" readonly aria-label="无匹配示例" />
+                  <div style="margin-top:4px; border:1px solid var(--tc-border); border-radius:8px; padding:8px 10px; font-size:12px; color:var(--tc-muted-fg); background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+                    没有「网球」这个标签。新标签要先在 <span style="text-decoration:underline; color:var(--tc-fg);">设置 › 圈子和标签</span> 里添加。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3.3 CircleField & LabelsField -->
+      <article id="comp-primary-circle" class="comp-card" data-search="CircleField LabelsField src/components/primary-circle-picker.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;CircleField /&gt; &amp; &lt;LabelsField /&gt;</span>
+            <span class="comp-file">src/components/primary-circle-picker.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>基于内部 Hook <code>usePersonTagsSaver(personId)</code> 封装即选即存（<code>PATCH /api/v1/people/{id}</code>）的独立行级字段组件，附左对齐固定宽度 <code>w-8</code> 标题与地图扇区说明。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>带行首标签与即存状态的字段包装</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (CircleField)</span><span class="dom-cls">space-y-1</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">flex items-start gap-2</span></div>
+                  <div class="dom-note"><code>&lt;span class="w-8"&gt;</code>“圈子” + <a class="ref-pill" href="#comp-tag-combobox">&lt;CirclePicker /&gt;</a></div>
+                </div>
+                <div class="dom-box"><span class="dom-tag">&lt;p class="pl-10 text-[11px]"&gt;</span> <span class="dom-note">“一个人一个圈子，用来在地图上分扇区。”</span></div>
+              </div>
+            </div>
+            <div class="dom-box" style="margin-top:6px;">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (LabelsField)</span><span class="dom-cls">space-y-1</span></div>
+              <div class="dom-children">
+                <div class="dom-note"><code>&lt;span class="w-8"&gt;</code>“标签” + <code>&lt;div class="flex-1"&gt;</code><a class="ref-pill" href="#comp-tag-combobox">&lt;LabelsPicker /&gt;</a></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>即选即存圈子与标签栏</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="tc-xs tc-muted" style="width:32px; flex-shrink:0;">圈子</span>
+                  <span class="tc-chip chip-circle">创业伙伴 ×</span>
+                  <input class="tc-input" style="flex:1;" placeholder="搜索并换一个圈子" readonly />
+                </div>
+                <div class="tc-2xs tc-muted" style="padding-left:40px; margin-top:4px;">一个人一个圈子，用来在地图上分扇区。</div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:8px;">
+                <span class="tc-xs tc-muted" style="width:32px; flex-shrink:0; padding-top:4px;">标签</span>
+                <div style="flex:1;" class="tc-stack-2">
+                  <div class="tc-row"><span class="tc-chip chip-skill">法务 ×</span><span class="tc-chip chip-skill">投融资 ×</span></div>
+                  <input class="tc-input" placeholder="搜索并添加标签，例如 羽毛球" readonly />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3.4 TagsManager -->
+      <article id="comp-tags-manager" class="comp-card" data-search="TagsManager TagsPage src/components/tags-manager.tsx src/app/(app)/tags/page.tsx 圈子和标签">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;TagsManager /&gt;</span>
+            <span class="comp-file">src/components/tags-manager.tsx（宿主：/tags）</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>全站唯一的词表增删改入口。顶部并排两个新建表单（新圈子 / 新标签），下方按「圈子」「标签」两组渲染 <code>divide-y</code> 列表；圈子行额外挂载 <a class="ref-pill" href="#comp-share-panel">ShareButton</a> 支持整圈打包分享。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>双新建表单 + 行内编辑切换列表</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">space-y-6</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">grid gap-2 sm:grid-cols-2</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box is-form"><span class="dom-tag">&lt;form&gt;</span> <span class="dom-note"><code>&lt;Input placeholder="新圈子，例如 球友" /&gt;</code> + <code>&lt;Button&gt;</code>“+ 圈子”</span></div>
+                    <div class="dom-box is-form"><span class="dom-tag">&lt;form&gt;</span> <span class="dom-note"><code>&lt;Input placeholder="新标签，例如 羽毛球" /&gt;</code> + <code>&lt;Button variant="outline"&gt;</code>“+ 标签”</span></div>
+                  </div>
+                </div>
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;section&gt; × 2（圈子组 / 标签组）</span><span class="dom-cls">space-y-2</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box"><span class="dom-tag">&lt;h2&gt;</span> <span class="dom-note">{title} + 数量 + 规则副标题</span></div>
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;ul&gt;</span><span class="dom-cls">divide-y rounded-xl border bg-card</span></div>
+                      <div class="dom-children">
+                        <div class="dom-cond">
+                          <div class="dom-cond-title">? editing?.id === tag.id（行内改名态）</div>
+                          <div class="dom-note"><code>&lt;li&gt;</code>：<code>&lt;Input autoFocus /&gt;</code> + 保存 <code>✓</code> 按钮 + 取消 <code>✕</code> 按钮</div>
+                        </div>
+                        <div class="dom-cond">
+                          <div class="dom-cond-title">? 默认展示态</div>
+                          <div class="dom-note"><code>&lt;li&gt;</code>：<code>&lt;a href="/people?tag=..."&gt;</code> + “{n} 人” + <code>?circle</code> <code>&lt;ShareButton label="分享这个圈子" /&gt;</code> + 编辑铅笔按钮 + 删除垃圾桶按钮</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/tags 页面完整形态（含常态与行内编辑态）</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-grid-2">
+                <div style="display:flex; gap:6px;"><input class="tc-input" placeholder="新圈子，例如 球友" readonly /><span class="tc-btn">+ 圈子</span></div>
+                <div style="display:flex; gap:6px;"><input class="tc-input" placeholder="新标签，例如 羽毛球" readonly /><span class="tc-btn tc-btn-outline">+ 标签</span></div>
+              </div>
+              <div class="tc-stack-2">
+                <div class="tc-sm" style="font-weight:600;">圈子 <span class="tc-muted" style="font-weight:400;">2</span> <span class="tc-xs tc-muted" style="font-weight:400; margin-left:6px;">一个人只能属于其中一个。</span></div>
+                <ul class="tc-list">
+                  <li style="display:flex; align-items:center; gap:8px;">
+                    <span class="tc-sm" style="flex:1;">球友</span>
+                    <span class="tc-xs tc-muted">5 人</span>
+                    <span class="tc-btn tc-btn-outline tc-btn-sm">分享这个圈子</span>
+                    <span class="tc-btn tc-btn-ghost tc-btn-icon-sm">✎</span>
+                    <span class="tc-btn tc-btn-ghost tc-btn-icon-sm tc-muted">🗑</span>
+                  </li>
+                  <li style="display:flex; align-items:center; gap:6px;">
+                    <input class="tc-input" value="前同事" readonly aria-label="编辑圈子名" />
+                    <span class="tc-btn tc-btn-outline tc-btn-icon-sm">✓</span>
+                    <span class="tc-btn tc-btn-ghost tc-btn-icon-sm">✕</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 4. 万能输入、AI 草稿与收件箱 ==================== -->
+    <section id="sec-omnibox" class="group-section">
+      <div class="group-header">
+        <h2>4. 万能输入、AI 草稿与收件箱（Omnibox, Draft &amp; Inbox）</h2>
+        <span>首页统一自然语言入口：支持粘贴图片、填空模板 Tab 跳转、原地展开检索结果或入库草稿</span>
+      </div>
+
+      <!-- 4.1 UniversalInput -->
+      <article id="comp-universal-input" class="comp-card" data-search="UniversalInput HomePage src/components/universal-input.tsx 首页 万能输入框 模板">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;UniversalInput /&gt;</span>
+            <span class="comp-file">src/components/universal-input.tsx（宿主：/ 首页）</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>依赖子组件：</strong><a class="ref-pill" href="#comp-draft-card">DraftCard</a> <a class="ref-pill" href="#comp-search-results">SearchResults</a> <a class="ref-pill" href="#comp-form-primitives">Textarea</a> <a class="ref-pill" href="#comp-button">Button</a></span>
+          <span><strong>6 态状态机：</strong><code>idle</code>（显示 4 个模板胶囊）→ <code>loading</code> → <code>parsed(query)</code> / <code>parsed(add|update)</code> → <code>applied</code>（翠绿成功条） / <code>discarded</code> / <code>failed</code>。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>输入卡片 + 6 态原地展开区</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;section&gt;</span><span class="dom-cls">space-y-3</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（主输入舱）</span><span class="dom-cls">rounded-2xl border bg-card p-3 shadow-xs</span></div>
+                  <div class="dom-children">
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? imageUrl 存在（上传或剪贴板粘贴名片/截图）</div>
+                      <div class="dom-note"><code>&lt;div class="mb-2 flex items-center gap-2"&gt;</code>：<code>64×64</code> 缩略图 <code>role="img"</code> + 文件名 + 移除图片按钮</div>
+                    </div>
+                    <div class="dom-box is-form"><span class="dom-tag">&lt;input type="file" class="hidden" accept="image/*" /&gt;</span></div>
+                    <div class="dom-box is-form"><span class="dom-tag">&lt;Textarea autoFocus /&gt;</span> <span class="dom-note">单行高 2 行、含换行自动扩为 7 行；<code>Tab</code> 选中下一个 <code>【】</code></span></div>
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;div&gt;（底栏工具条）</span><span class="dom-cls">mt-2 flex items-center justify-between gap-2</span></div>
+                      <div class="dom-note">左侧：上传图片图标按钮 + 提示语（含 <code>+</code> 强制记录 / <code>?</code> 强制查询说明）；右侧：圆形主提交按钮 <code>↑</code></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? state.kind === "idle" → 填空模板胶囊栏</div>
+                  <div class="dom-note">“模板：” + 4 个 <code>&lt;button class="rounded-full border"&gt;</code>（新认识一个人 / 追加一句 / 听说的人 / 详细版）</div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? state.kind === "parsed" &amp;&amp; intent === "query"</div>
+                  <div class="dom-note">标题栏（<code>&lt;h3&gt;</code>“找人结果” + “清除”按钮）+ <a class="ref-pill" href="#comp-search-results">&lt;SearchResults /&gt;</a></div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? state.kind === "parsed" &amp;&amp; intent !== "query"</div>
+                  <a class="dom-slot" href="#comp-draft-card">↳ &lt;DraftCard /&gt;（原地核对草稿并确认入库）</a>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? state.kind === "applied" | "discarded" | "failed"</div>
+                  <div class="dom-note">绿色成功条（“已记录：姓名 + 继续记”）/ 灰色已丢弃条 / 红色错误重试条</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>Idle 录入态 + Applied 入库反馈条</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div style="border:1px solid var(--tc-border); border-radius:16px; padding:12px; background:#fff;">
+                <div style="min-height:48px; font-size:14px; color:var(--tc-muted-fg); padding:2px 4px;">
+                  记一个人、追加一句，或者找人。例如：今天球馆认识小王，羽毛球教练，深圳…
+                </div>
+                <div class="tc-between" style="margin-top:8px;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span class="tc-btn tc-btn-ghost tc-btn-icon-sm" title="上传图片">🖼</span>
+                    <span class="tc-2xs tc-muted">回车提交。可粘贴名片或聊天截图。<code class="tc-mono">+</code> 强制记录，<code class="tc-mono">?</code> 强制查询。</span>
+                  </div>
+                  <span class="tc-btn tc-btn-icon" style="opacity:0.5;">↑</span>
+                </div>
+              </div>
+              <div class="tc-row">
+                <span class="tc-2xs tc-muted">模板：</span>
+                <span style="border:1px solid var(--tc-border); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--tc-muted-fg);">新认识一个人</span>
+                <span style="border:1px solid var(--tc-border); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--tc-muted-fg);">追加一句</span>
+                <span style="border:1px solid var(--tc-border); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--tc-muted-fg);">听说的人</span>
+                <span style="border:1px solid var(--tc-border); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--tc-muted-fg);">详细版</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; border:1px solid #a7f3d0; background:#ecfdf5; color:#064e3b; border-radius:12px; padding:10px 12px; font-size:13px;">
+                <span>✓ 已记录：<b style="text-decoration:underline;">小王</b></span>
+                <span style="color:#065f46; opacity:0.8;">深圳 / 羽毛球教练，带成人班</span>
+                <span style="margin-left:auto; font-size:12px; font-weight:500;">继续记</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4.2 DraftCard -->
+      <article id="comp-draft-card" class="comp-card" data-search="DraftCard src/components/draft-card.tsx 草稿 确认入库 新增 更新已有">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;DraftCard /&gt;</span>
+            <span class="comp-file">src/components/draft-card.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>三处复用：</strong>① 首页 <a class="ref-pill" href="#comp-universal-input">UniversalInput</a> 原地确认；② 收件箱 <a class="ref-pill" href="#comp-inbox-pending">InboxPendingList</a> 展开处理（含他人分享收录）；③ 详情页/地图浮层 <a class="ref-pill" href="#comp-append-input">AppendInput</a> 追加确认。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>7 段式入库校对表单</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">space-y-4 rounded-xl border bg-card p-4</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（1. 头部与意图切换）</span><span class="dom-cls">flex flex-wrap items-start justify-between gap-2</span></div>
+                  <div class="dom-note">左：<code>&lt;h3&gt;</code>“新增一个人 / 更新已有的人” + <code>&lt;p&gt;</code>“原文：…”；右：分段按钮 <code>[新增 | 更新已有]</code></div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? 2. error 存在（LLM 失败降级手动表单）</div>
+                  <div class="dom-note">琥珀色警告框 <code>border-amber-200 bg-amber-50</code>：“自动解析失败，已为你准备好空表单…”</div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? 3. candidates.length &gt; 0 || isUpdate（同名/相似候选人消歧）</div>
+                  <div class="dom-note"><code>&lt;h4&gt;</code> + 低置信度黄字提醒 + 候选人 <code>&lt;button&gt;</code> 胶囊组（姓名 + <code>&lt;TierBadge /&gt;</code> + 城市）</div>
+                </div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（4. 人物属性网格）</span><span class="dom-cls">grid grid-cols-2 gap-3 sm:grid-cols-3</span></div>
+                  <div class="dom-note">8 个 <code>&lt;label&gt;</code>：姓名 / 性别 / 关系远近 / 所在地 / 怎么认识的 / 认识日期 / 摘要（跨 3 列）/ 我的印象（跨 3 列）</div>
+                </div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（5. 联系方式动态行）</span></div>
+                  <div class="dom-note">键值双 <code>&lt;Input&gt;</code> + 删除按钮；底部快捷按钮组：<code>+ 微信 / + 电话 / + 邮箱 / + 小红书 / + LinkedIn / + 自定义</code></div>
+                </div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（6. 圈子和标签 &amp; 时间线事件）</span></div>
+                  <div class="dom-note">挂载 <code>&lt;CirclePicker /&gt;</code> + <code>&lt;LabelsPicker /&gt;</code>；时间线每行四列 <code>[事件类型 | 内容 | 日期 | 删除]</code> + “+ 添加事件”</div>
+                </div>
+                <div class="dom-box is-interactive">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（7. 底部动作栏）</span><span class="dom-cls">flex items-center justify-between border-t pt-3</span></div>
+                  <div class="dom-note">左：<code>丢弃</code>（分享态为“忽略”）+ <code>?allowReparse</code> <code>重新解析</code>；右：主按钮 <code>确认入库 / 确认更新 / 收录到我的人脉</code></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>DraftCard 完整校对界面</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-between-start">
+                <div>
+                  <div style="font-size:13.5px; font-weight:600;">更新已有的人</div>
+                  <div class="tc-xs tc-muted">原文：小王上周帮我挑了新球拍，微信号 wang_badminton</div>
+                </div>
+                <div class="tc-seg"><span>新增</span><span class="active">更新已有</span></div>
+              </div>
+
+              <div class="tc-stack-1">
+                <div class="tc-2xs tc-muted" style="font-weight:600;">要更新的人</div>
+                <div class="tc-row">
+                  <span style="display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--tc-primary); background:#f8fafc; border-radius:8px; padding:4px 9px; font-size:12.5px;">
+                    <b>小王</b> <span class="tc-tier tier-friends">Friends</span> <span class="tc-xs tc-muted">深圳</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="tc-grid-3">
+                <label class="tc-field"><span>姓名（留空不改）</span><input class="tc-input" value="小王" readonly /></label>
+                <label class="tc-field"><span>性别</span><select class="tc-select" style="height:32px;"><option>男</option></select></label>
+                <label class="tc-field"><span>关系远近</span><select class="tc-select" style="height:32px;"><option>Friends</option></select></label>
+              </div>
+
+              <div class="tc-stack-2">
+                <div class="tc-2xs tc-muted" style="font-weight:600;">联系方式</div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input class="tc-input" style="width:92px;" value="wechat" readonly />
+                  <input class="tc-input" value="wang_badminton" readonly />
+                  <span class="tc-btn tc-btn-ghost tc-btn-icon-sm">🗑</span>
+                </div>
+                <div class="tc-row">
+                  <span class="tc-btn tc-btn-outline tc-btn-xs" style="opacity:0.45;">+ 微信</span>
+                  <span class="tc-btn tc-btn-outline tc-btn-xs">+ 电话</span>
+                  <span class="tc-btn tc-btn-outline tc-btn-xs">+ 邮箱</span>
+                  <span class="tc-btn tc-btn-ghost tc-btn-xs">+ 自定义</span>
+                </div>
+              </div>
+
+              <div class="tc-stack-1">
+                <div class="tc-2xs tc-muted" style="font-weight:600;">时间线事件</div>
+                <div style="display:grid; grid-template-columns:78px 1fr 108px 28px; gap:6px; align-items:center;">
+                  <select class="tc-select" style="height:32px; padding:0 6px;"><option>帮了我</option></select>
+                  <input class="tc-input" value="帮我挑了新球拍" readonly />
+                  <input class="tc-input" value="2026-11-10" readonly />
+                  <span class="tc-btn tc-btn-ghost tc-btn-icon-sm">🗑</span>
+                </div>
+              </div>
+
+              <div class="tc-between" style="border-top:1px solid var(--tc-border); padding-top:10px;">
+                <div class="tc-row">
+                  <span class="tc-btn tc-btn-ghost tc-btn-sm">丢弃</span>
+                  <span class="tc-btn tc-btn-ghost tc-btn-sm">重新解析</span>
+                </div>
+                <span class="tc-btn">确认更新</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4.3 SearchResults -->
+      <article id="comp-search-results" class="comp-card" data-search="SearchResults src/components/search-results.tsx 找人结果 排序 评分">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;SearchResults /&gt;</span>
+            <span class="comp-file">src/components/search-results.tsx</span>
+          </div>
+          <span class="badge-server">Server / Shared Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>在首页输入框下方原地展示混合检索命中人物，通过 <code>PersonCard</code> 的 <code>footer</code> 插槽注入综合得分与命中原因标签（语义相近 / 摘要命中 / 标签「…」）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>计数说明 + 带评分 Footer 的卡片流</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">space-y-2</span></div>
+              <div class="dom-children">
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? hits.length === 0 → 虚线空框“没有找到和「{query}」相关的人。”</div>
+                </div>
+                <div class="dom-box"><span class="dom-tag">&lt;p&gt;</span> <span class="dom-note">“找到 {n} 人，按「语义 × 关系远近 × 关键词」排序”</span></div>
+                <div class="dom-box">
+                  <a class="dom-slot" href="#comp-person-card">↳ &lt;PersonCard person={hit.person} footer={...} /&gt;</a>
+                  <div class="dom-children">
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;div&gt; (footer slot)</span><span class="dom-cls">mt-2 flex flex-wrap items-center gap-1.5 text-[11px]</span></div>
+                      <div class="dom-note"><code>&lt;span class="font-mono bg-muted"&gt;</code>{score} + 多个 <code>&lt;span class="border"&gt;</code>{reasonLabel}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>检索命中卡片</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div class="tc-xs tc-muted">找到 2 人，按「语义 × 关系远近 × 关键词」排序</div>
+              <div class="tc-card">
+                <div class="tc-between-start">
+                  <div>
+                    <div class="tc-row">
+                      <b style="font-size:15px;">林律师</b>
+                      <span class="tc-tier tier-close">Close friends</span>
+                      <span class="tc-xs tc-muted">📍 深圳</span>
+                    </div>
+                    <div class="tc-sm tc-muted" style="margin-top:4px;">商事诉讼与股权架构律师，认识六年。</div>
+                  </div>
+                  <span class="tc-2xs tc-muted">5 天前</span>
+                </div>
+                <div class="tc-row" style="margin-top:8px;">
+                  <span class="tc-chip chip-skill">合同审查</span>
+                  <span class="tc-chip chip-skill">知识产权</span>
+                </div>
+                <div class="tc-row" style="margin-top:8px; font-size:11px; color:var(--tc-muted-fg);">
+                  <span class="tc-mono" style="background:var(--tc-muted); padding:1px 6px; border-radius:4px;">0.89</span>
+                  <span style="border:1px solid var(--tc-border); padding:1px 6px; border-radius:4px;">语义相近</span>
+                  <span style="border:1px solid var(--tc-border); padding:1px 6px; border-radius:4px;">标签「合同审查」</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4.4 InboxPendingList & InboxPage -->
+      <article id="comp-inbox-pending" class="comp-card" data-search="InboxPendingList InboxPage src/components/inbox-pending-list.tsx src/app/(app)/inbox/page.tsx 收件箱 待处理">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;InboxPendingList /&gt; &amp; &lt;InboxPage /&gt;</span>
+            <span class="comp-file">src/components/inbox-pending-list.tsx · src/app/(app)/inbox/page.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>复用位置：</strong>首页底部（<code>compact=true</code>，最多 5 条 + “查看全部收件箱 →”）与 <code>/inbox</code> 完整页（带「待处理 / 已入库 / 已丢弃」三态 Tab）。</span>
+          <span><strong>特殊适配：</strong>当 <code>item.source === "share"</code>（他人分享流入收件箱）时，展开的 <code>DraftCard</code> 禁用重新解析，按钮变为「收录到我的人脉」与「忽略」，并开启 <code>allowNewTags</code>。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>手风琴展开列表 + 收件箱三态页</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (InboxPage)</span><span class="dom-cls">space-y-4</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;div class="inline-flex border"&gt;</span> <span class="dom-note">3 个 <code>&lt;a&gt;</code>：待处理 / 已入库 / 已丢弃</span></div>
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt; (InboxPendingList)</span><span class="dom-cls">space-y-2</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;div&gt;（单条折叠卡）</span><span class="dom-cls">rounded-xl border bg-card</span></div>
+                      <div class="dom-children">
+                        <div class="dom-box is-interactive">
+                          <span class="dom-tag">&lt;button&gt;</span> <span class="dom-note">原文 <code>raw_text</code> + 来源（网页 / 快捷指令 / iOS / 分享）· 相对时间 + <code>ChevronDown/Up</code></span>
+                        </div>
+                        <div class="dom-cond">
+                          <div class="dom-cond-title">? isOpen === true → 按需拉取 GET /api/v1/inbox/{id}</div>
+                          <a class="dom-slot" href="#comp-draft-card">↳ &lt;DraftCard /&gt;</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>收件箱三态切换与折叠条目</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-seg"><span class="active">待处理</span><span>已入库</span><span>已丢弃</span></div>
+              <div class="tc-stack-2">
+                <div class="tc-card" style="padding:11px 12px;">
+                  <div class="tc-between-start">
+                    <div>
+                      <div class="tc-sm">展会遇到老周，做工业相机视觉检测，在苏州工业园</div>
+                      <div class="tc-2xs tc-muted" style="margin-top:3px;">快捷指令 · 2 小时前</div>
+                    </div>
+                    <span class="tc-muted">⌄</span>
+                  </div>
+                </div>
+                <div class="tc-card" style="padding:11px 12px;">
+                  <div class="tc-between-start">
+                    <div>
+                      <div class="tc-sm">@beibei 分享：设计师阿凯（上海）</div>
+                      <div class="tc-2xs tc-muted" style="margin-top:3px;">分享 · 昨天</div>
+                    </div>
+                    <span class="tc-muted">⌄</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 5. 人脉名录、档案与时间线 ==================== -->
+    <section id="sec-people" class="group-section">
+      <div class="group-header">
+        <h2>5. 人脉名录、档案与时间线（People, Profile &amp; Timeline）</h2>
+        <span>URL 驱动的无状态筛选分页、客观摘要与私密印象分层展示、原地编辑与只增不改时间线</span>
+      </div>
+
+      <!-- 5.1 PeopleFilters + Pagination -->
+      <article id="comp-people-filters" class="comp-card" data-search="PeopleFilters PeoplePage Pagination src/components/people-filters.tsx src/app/(app)/people/page.tsx 人脉筛选 分页">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PeopleFilters /&gt; &amp; 分页导航</span>
+            <span class="comp-file">src/components/people-filters.tsx · src/app/(app)/people/page.tsx</span>
+          </div>
+          <span class="badge-server">Server Component (GET Form)</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>纯 HTML <code>&lt;form method="get" action="/people#all"&gt;</code> 将筛选条件持久化在 URL 参数中；列表每页 <code>PAGE_SIZE = 8</code> 条，双列网格排布，超过 1 页时渲染带省略号的 <code>&lt;nav aria-label="分页"&gt;</code>。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>GET 筛选表单 + 页码窗口</span></div>
+            <div class="dom-box is-form">
+              <div class="dom-line"><span class="dom-tag">&lt;form method="get" action="/people#all"&gt;</span><span class="dom-cls">grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.5fr_auto]</span></div>
+              <div class="dom-children">
+                <a class="dom-slot" href="#comp-filter-combobox">↳ &lt;FilterCombobox name="tier" allLabel="全部关系" /&gt;</a>
+                <a class="dom-slot" href="#comp-filter-combobox">↳ &lt;TagFilterCombobox tags={tags} /&gt; (name="tag")</a>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;Input name="q" placeholder="关键词：姓名 / 摘要 / 印象" /&gt;</span></div>
+                <div class="dom-box"><span class="dom-tag">&lt;div&gt;</span> <span class="dom-note"><code>&lt;Button type="submit"&gt;</code>“筛选” + <code>?hasAny</code> <code>&lt;a&gt;</code>“清除”</span></div>
+              </div>
+            </div>
+            <div class="dom-box is-semantic" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;nav aria-label="分页"&gt;</span><span class="dom-cls">flex flex-wrap items-center justify-center gap-1 pt-2</span></div>
+              <div class="dom-note">上一页 + 页码窗口 <code>[1, …, p-1, p, p+1, …, count]</code> + 下一页 + “第 {page} / {pageCount} 页”</div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>四栏筛选条 + 底部页码条</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div style="display:grid; grid-template-columns:1fr 1fr 1.4fr auto; gap:6px;">
+                <input class="tc-input" style="height:36px;" placeholder="全部关系（输入搜索）" readonly />
+                <input class="tc-input" style="height:36px;" value="羽毛球" readonly />
+                <input class="tc-input" style="height:36px;" placeholder="关键词：姓名 / 摘要 / 印象" readonly />
+                <div style="display:flex; gap:4px;">
+                  <span class="tc-btn tc-btn-lg">筛选</span>
+                  <span class="tc-btn tc-btn-ghost tc-btn-lg">清除</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:center; gap:4px; padding-top:4px;">
+                <span class="tc-btn tc-btn-outline tc-btn-sm" style="opacity:0.45;">上一页</span>
+                <span class="tc-btn tc-btn-sm">1</span>
+                <span class="tc-btn tc-btn-ghost tc-btn-sm">2</span>
+                <span class="tc-xs tc-muted">…</span>
+                <span class="tc-btn tc-btn-ghost tc-btn-sm">5</span>
+                <span class="tc-btn tc-btn-outline tc-btn-sm">下一页</span>
+                <span class="tc-xs tc-muted" style="margin-left:6px;">第 1 / 5 页</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5.2 PersonCard -->
+      <article id="comp-person-card" class="comp-card" data-search="PersonCard src/components/person-card.tsx 人物卡片">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PersonCard /&gt;</span>
+            <span class="comp-file">src/components/person-card.tsx</span>
+          </div>
+          <span class="badge-server">Server / Shared Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>隐私边界：</strong>列表卡片仅展示客观 <code>summary</code>（截断 80 字）与最多 8 个非圈子标签；私密评价 <code>impression</code> 仅在人物详情页展示（<code>design.md §19 Q4</code>）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>整卡可点击 &lt;a&gt; 容器</span></div>
+            <div class="dom-box is-interactive">
+              <div class="dom-line"><span class="dom-tag">&lt;a href="/people/{id}"&gt;</span><span class="dom-cls">block rounded-xl border bg-card p-3.5 hover:bg-muted/50</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">flex items-start justify-between gap-3</span></div>
+                  <div class="dom-children">
+                    <div class="dom-note">左：姓名 + <a class="ref-pill" href="#comp-tier-badge">&lt;TierBadge /&gt;</a> + <code>?location</code> <code>MapPin</code> 城市 + <code>?summary</code> 80 字摘要</div>
+                    <div class="dom-note">右：<code>?last_contact_at</code> 最近联系相对时间</div>
+                  </div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? 存在非 circle 标签 → 最多渲染前 8 个 &lt;TagChip /&gt;</div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? footer 插槽存在（SearchResults 注入评分与原因）</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>人脉列表标准卡片</span></div>
+            <div class="tc-canvas">
+              <div class="tc-card">
+                <div class="tc-between-start">
+                  <div>
+                    <div class="tc-row">
+                      <span style="font-size:15.5px; font-weight:600;">小王</span>
+                      <span class="tc-tier tier-friends">Friends</span>
+                      <span class="tc-xs tc-muted">📍 深圳</span>
+                    </div>
+                    <p class="tc-sm tc-muted" style="margin:4px 0 0;">羽毛球教练，在深圳南山带成人班，动作纠正很细致。</p>
+                  </div>
+                  <span class="tc-2xs tc-muted">3 天前</span>
+                </div>
+                <div class="tc-row" style="margin-top:8px;">
+                  <span class="tc-chip chip-skill">羽毛球</span>
+                  <span class="tc-chip chip-other">早起党</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5.3 ProfileModes & PersonPage -->
+      <article id="comp-profile-modes" class="comp-card" data-search="ProfileModes ProfileView ProfileEdit EnterEditButton PersonEditPanel PersonPage src/components/profile-modes.tsx src/app/(app)/people/[id]/page.tsx 人物详情">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;ProfileModes /&gt; &amp; &lt;PersonPage /&gt;</span>
+            <span class="comp-file">src/components/profile-modes.tsx · src/app/(app)/people/[id]/page.tsx</span>
+          </div>
+          <span class="badge-client">RSC + Client Context 混合架构</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>状态切换：</strong><code>ProfileModes</code> 提供 <code>editing</code> Context（URL 带 <code>?edit=geo</code> 时默认进入编辑态）。<code>ProfileView</code> 渲染查看态双栏档案 + 回访计划 + 只读时间线；<code>ProfileEdit</code> 渲染全字段编辑表单 +「追加一句」+ 可删除时间线。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>查看态 vs 编辑态双分支</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (ProfileModes 内)</span><span class="dom-cls">space-y-6</span></div>
+              <div class="dom-children">
+                <div class="dom-box is-interactive"><span class="dom-tag">&lt;a href="/people"&gt;</span> <span class="dom-note"><code>‹ 人脉列表</code> 返回链接</span></div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? !editing → &lt;ProfileView&gt;</div>
+                  <div class="dom-box is-semantic">
+                    <div class="dom-line"><span class="dom-tag">&lt;article&gt;</span></div>
+                    <div class="dom-children">
+                      <div class="dom-note">顶部头：左（<code>&lt;h1&gt;</code>姓名 + <code>TierBadge</code> + 性别/地图坐标链接 + 摘要 + 分享来源）；右（<code>ShareButton</code> + <code>EnterEditButton</code> + <code>DeletePersonButton</code>）</div>
+                      <div class="dom-note" style="margin-top:4px;">双栏 <code>grid sm:grid-cols-[1.3fr_0.7fr]</code>：左栏（私密印象 + 认识日期/未定位黄字）；右栏（联系方式 <code>&lt;dl&gt;</code> 支持 <code>tel:/mailto:</code> + 圈子与标签组）</div>
+                    </div>
+                  </div>
+                  <a class="dom-slot" href="#comp-followup-plan">↳ &lt;FollowUpPlan personId steps /&gt;</a>
+                  <a class="dom-slot" href="#comp-timeline">↳ &lt;Timeline canDelete={false} /&gt;</a>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? editing === true → &lt;ProfileEdit&gt;</div>
+                  <div class="dom-note"><code>&lt;h1&gt;</code>姓名 + <a class="ref-pill" href="#comp-person-edit">&lt;PersonEditPanel /&gt;</a> + <a class="ref-pill" href="#comp-append-input">&lt;AppendInput /&gt;</a> + <a class="ref-pill" href="#comp-timeline">&lt;Timeline canDelete /&gt;</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>人物详情查看态（ProfileView）</span></div>
+            <div class="tc-canvas tc-stack-4">
+              <div class="tc-xs tc-muted">‹ 人脉列表</div>
+              <div class="tc-between-start">
+                <div class="tc-stack-1">
+                  <div class="tc-row">
+                    <span style="font-size:21px; font-weight:700;">林律师</span>
+                    <span class="tc-tier tier-close">Close friends</span>
+                  </div>
+                  <div class="tc-xs tc-muted">女 · <span style="text-decoration:underline;">📍 深圳</span></div>
+                  <div class="tc-sm">商事诉讼与股权架构律师，认识六年，办事利落。</div>
+                  <div class="tc-2xs tc-muted">来源：@beibei 分享</div>
+                </div>
+                <div class="tc-row">
+                  <span class="tc-btn tc-btn-outline tc-btn-sm">分享</span>
+                  <span class="tc-btn tc-btn-outline tc-btn-sm">✎ 编辑</span>
+                  <span class="tc-btn tc-btn-ghost tc-btn-sm tc-muted">🗑 删除</span>
+                </div>
+              </div>
+
+              <div class="tc-grid-2" style="gap:16px; padding-top:4px; border-top:1px solid #f4f4f5;">
+                <div class="tc-stack-2">
+                  <div>
+                    <div class="tc-2xs tc-muted">印象</div>
+                    <div class="tc-sm" style="margin-top:2px;">合同风险点抓得准，回复极快，不讲套话。</div>
+                  </div>
+                  <div class="tc-xs tc-muted">认识于 2020-05-18</div>
+                </div>
+                <div class="tc-stack-3">
+                  <div>
+                    <div class="tc-2xs tc-muted">联系方式</div>
+                    <div style="display:flex; gap:10px; margin-top:4px; font-size:13px;">
+                      <span class="tc-muted" style="width:44px;">微信</span><span class="tc-mono">lin_legal_sz</span>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:2px; font-size:13px;">
+                      <span class="tc-muted" style="width:44px;">电话</span><span class="tc-mono" style="text-decoration:underline;">138-0000-0000</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="tc-2xs tc-muted">圈子和标签</div>
+                    <div class="tc-row" style="margin-top:4px;">
+                      <span class="tc-chip chip-circle">创业伙伴</span>
+                      <span class="tc-chip chip-skill">合同审查</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5.4 PersonEditForm & DeletePersonButton -->
+      <article id="comp-person-edit" class="comp-card" data-search="PersonEditForm DeletePersonButton src/components/person-edit-form.tsx 编辑资料 地图坐标 经纬度">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PersonEditForm /&gt; &amp; &lt;DeletePersonButton /&gt;</span>
+            <span class="comp-file">src/components/person-edit-form.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>特色区块：</strong>带锚点 <code>id="geo"</code> 的地图坐标编辑器，支持「按所在地自动（离线城市表）」与「手动填写 lat/lng + 搜中英文城市自动回填坐标」切换，无需大模型即可全量维护人物档案。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>全量编辑卡片 + #geo 坐标段</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">space-y-4 rounded-xl border bg-card p-4</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;h3&gt;</span> <span class="dom-note">“编辑资料”</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;div class="grid grid-cols-2 sm:grid-cols-3"&gt;</span> <span class="dom-note">姓名* / 性别 / 关系远近 / 所在地 / 怎么认识的 / 认识日期 / 摘要 / 我的印象</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;div&gt;（联系方式）</span> <span class="dom-note">动态键值行 + 6 个快捷添加按钮</span></div>
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;div id="geo"&gt;（地图坐标）</span></div>
+                  <div class="dom-children">
+                    <div class="dom-note">分段开关 <code>[按所在地自动 | 手动填写]</code></div>
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? geoMode === "manual"</div>
+                      <div class="dom-note">双列 <code>纬度 lat / 经度 lng</code> 输入框 + <code>GET /api/v1/geo/cities</code> 实时城市搜索下拉 <code>&lt;ul&gt;</code></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;div&gt;（圈子和标签）</span> <span class="dom-note"><code>&lt;CirclePicker /&gt;</code> + <code>&lt;LabelsPicker /&gt;</code></span></div>
+                <div class="dom-box is-interactive">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（底栏）</span><span class="dom-cls">flex items-center justify-between border-t pt-3</span></div>
+                  <div class="dom-note">左：<code>🗑 删除这个人</code>；右：<code>取消</code> + <code>保存</code></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>手动坐标修复模式（?edit=geo）</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div style="font-size:13.5px; font-weight:600;">编辑资料 · 地图坐标段 (#geo)</div>
+              <div class="tc-seg"><span>按所在地自动</span><span class="active">手动填写</span></div>
+              <div class="tc-grid-2">
+                <label class="tc-field"><span>纬度 lat</span><input class="tc-input" value="30.29" readonly /></label>
+                <label class="tc-field"><span>经度 lng</span><input class="tc-input" value="120.16" readonly /></label>
+              </div>
+              <div>
+                <input class="tc-input" value="杭州" readonly aria-label="城市搜索" />
+                <ul style="list-style:none; margin:4px 0 0; padding:0; border:1px solid var(--tc-border); border-radius:8px; background:#fff; font-size:12.5px;">
+                  <li style="padding:6px 10px; display:flex; justify-content:space-between;">
+                    <span>杭州 <span class="tc-xs tc-muted">Hangzhou</span></span>
+                    <span class="tc-mono tc-2xs tc-muted">30.29, 120.16</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="tc-between" style="border-top:1px solid var(--tc-border); padding-top:10px;">
+                <span class="tc-btn tc-btn-ghost tc-btn-sm tc-muted">🗑 删除这个人</span>
+                <div class="tc-row">
+                  <span class="tc-btn tc-btn-outline">取消</span>
+                  <span class="tc-btn">保存</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5.5 Timeline -->
+      <article id="comp-timeline" class="comp-card" data-search="Timeline src/components/timeline.tsx 时间线 事件">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;Timeline /&gt;</span>
+            <span class="comp-file">src/components/timeline.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>5 种事件圆点色：</strong><code>met</code> 认识（天蓝）、<code>helped_me</code> 帮了我（翠绿）、<code>i_helped</code> 我帮了他（紫罗兰）、<code>hangout</code> 一起玩（琥珀）、<code>note</code> 备注（石板灰）。</span>
+          <span><strong>只增不改规则：</strong>仅当 <code>canDelete=true</code>（档案编辑态）且非自动合成的认识起点（<code>!event.readonly</code>）时显示删除图标按钮。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>左轴线有序列表 &lt;ol&gt;</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span></div>
+              <div class="dom-children">
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;ol&gt;</span><span class="dom-cls">relative ml-2 border-l pl-5</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;li&gt;</span><span class="dom-cls">group relative pb-4 last:pb-0</span></div>
+                      <div class="dom-children">
+                        <div class="dom-box"><span class="dom-tag">&lt;span&gt;（彩色轴点）</span><span class="dom-cls">absolute -left-[1.6rem] top-1.5 size-2.5 rounded-full ring-4</span></div>
+                        <div class="dom-note"><code>&lt;time&gt;</code>YYYY-MM-DD + <code>&lt;span class="bg-muted"&gt;</code>事件类型 + <code>&lt;p&gt;</code>事件正文</div>
+                        <div class="dom-cond">
+                          <div class="dom-cond-title">? canDelete &amp;&amp; !event.readonly → 删除图标按钮（桌面端 group-hover 显现）</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>多色事件时间线</span></div>
+            <div class="tc-canvas">
+              <ol class="tc-timeline">
+                <li>
+                  <span class="tc-dot" style="background:#10b981;"></span>
+                  <div class="tc-between-start">
+                    <div>
+                      <div class="tc-row tc-xs tc-muted">
+                        <time>2026-11-10</time>
+                        <span style="background:var(--tc-muted); padding:1px 6px; border-radius:4px;">帮了我</span>
+                      </div>
+                      <div class="tc-sm" style="margin-top:2px;">帮我审完了种子轮股东协议，标出两处回购条款风险。</div>
+                    </div>
+                    <span class="tc-xs tc-muted" title="编辑态删除按钮">🗑</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="tc-dot" style="background:#f59e0b;"></span>
+                  <div>
+                    <div class="tc-row tc-xs tc-muted">
+                      <time>2026-09-22</time>
+                      <span style="background:var(--tc-muted); padding:1px 6px; border-radius:4px;">一起玩</span>
+                    </div>
+                    <div class="tc-sm" style="margin-top:2px;">在南山约了晚茶，聊各自近况。</div>
+                  </div>
+                </li>
+                <li>
+                  <span class="tc-dot" style="background:#0ea5e9;"></span>
+                  <div>
+                    <div class="tc-row tc-xs tc-muted">
+                      <time>2020-05-18</time>
+                      <span style="background:var(--tc-muted); padding:1px 6px; border-radius:4px;">认识</span>
+                    </div>
+                    <div class="tc-sm" style="margin-top:2px;">创业沙龙分享嘉宾，散场加了微信（只读起点）。</div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5.6 AppendInput -->
+      <article id="comp-append-input" class="comp-card" data-search="AppendInput src/components/append-input.tsx 追加一句">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;AppendInput /&gt;</span>
+            <span class="comp-file">src/components/append-input.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>复用位置：</strong>人物详情编辑态（常规高 <code>h-10</code>）与地图节点点击卡片 <a class="ref-pill" href="#comp-person-popover">PersonPopover</a>（紧凑态 <code>compact=true, h-9</code>）。提交后带 <code>person_id</code> 走同一套收件箱解析并在原地展开 <code>DraftCard</code>。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>单行追加表单 + 内联草稿</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">space-y-3</span></div>
+              <div class="dom-children">
+                <div class="dom-box is-form">
+                  <div class="dom-line"><span class="dom-tag">&lt;form&gt;</span><span class="dom-cls">flex gap-2</span></div>
+                  <div class="dom-note"><code>&lt;Input placeholder="追加一句关于 {name} 的事…" /&gt;</code> + <code>&lt;Button type="submit" aria-label="提交"&gt;</code><code>↑</code></div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? result 存在 → &lt;DraftCard allowReparse={false} /&gt;</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>追加一句输入框</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div style="display:flex; gap:8px;">
+                <input class="tc-input" style="height:38px;" placeholder="追加一句关于 林律师 的事，例如「上周帮我修了球拍」" readonly />
+                <span class="tc-btn" style="width:38px; height:38px; padding:0;">↑</span>
+              </div>
+              <div class="tc-xs" style="color:#047857;">已追加。</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 6. 回访计划与联系提醒 ==================== -->
+    <section id="sec-reminders" class="group-section">
+      <div class="group-header">
+        <h2>6. 回访计划与联系提醒（Follow-ups &amp; Reminders）</h2>
+        <span>两条独立机制：新入库人物「2天 / 3天 / 1周 / 1个月」阶梯回访 + 熟人固定周期逾期提醒</span>
+      </div>
+
+      <!-- 6.1 FollowUpPlan -->
+      <article id="comp-followup-plan" class="comp-card" data-search="FollowUpPlan src/components/follow-up-plan.tsx 回访计划">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;FollowUpPlan /&gt;</span>
+            <span class="comp-file">src/components/follow-up-plan.tsx（宿主：/people/[id] 查看态）</span>
+          </div>
+          <span class="badge-server">Server Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>4 种阶段胶囊：</strong><code>未到期</code>（灰）、<code>该回访了</code>（琥珀色 + 展开「完成 / 跳过」两个 Server Action 表单）、<code>已完成</code>（翠绿）、<code>已跳过</code>（灰）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>4 步回访时间表 &lt;ol&gt;</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;section&gt;</span><span class="dom-cls">space-y-3</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;h2&gt;</span>“回访” + <code>&lt;p&gt;</code>“从加入人脉库的那天算起，不是认识的那天。”</div>
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;ol&gt;</span><span class="dom-cls">divide-y rounded-xl border bg-card</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box">
+                      <div class="dom-line"><span class="dom-tag">&lt;li&gt;</span><span class="dom-cls">flex items-start justify-between gap-3 px-3 py-2.5</span></div>
+                      <div class="dom-note">左：偏移标签（第 2 天 / 第 1 周…）· 日期 + <code>step.suggestion</code></div>
+                      <div class="dom-note">右：状态胶囊 + <code>?phase==="该回访了"</code> 两个 <code>&lt;form action={setFollowUpStatusAction}&gt;</code>（完成 / 跳过）</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>人物详情页回访进度卡片</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div>
+                <div class="tc-sm" style="font-weight:600;">回访</div>
+                <div class="tc-xs tc-muted">从加入人脉库的那天算起，不是认识的那天。</div>
+              </div>
+              <ol class="tc-list">
+                <li class="tc-between-start">
+                  <div>
+                    <div class="tc-xs tc-muted">第 2 天 · 2026-11-12</div>
+                    <div class="tc-sm">发条微信打个招呼，提一下那天球馆聊到的球拍穿线。</div>
+                  </div>
+                  <span style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:999px; padding:1px 8px; font-size:11.5px;">已完成</span>
+                </li>
+                <li class="tc-between-start">
+                  <div>
+                    <div class="tc-xs tc-muted">第 3 天 · 2026-11-15</div>
+                    <div class="tc-sm">顺手把上次提到的场馆预约小程序转给他。</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                    <span style="background:#fffbeb; color:#92400e; border:1px solid #fde68a; border-radius:999px; padding:1px 8px; font-size:11.5px;">该回访了</span>
+                    <div class="tc-row tc-xs tc-muted"><span>完成</span><span>跳过</span></div>
+                  </div>
+                </li>
+                <li class="tc-between-start">
+                  <div>
+                    <div class="tc-xs tc-muted">1 周 · 2026-11-19</div>
+                    <div class="tc-sm">约一次周末双打。</div>
+                  </div>
+                  <span style="background:var(--tc-muted); color:var(--tc-muted-fg); border-radius:999px; padding:1px 8px; font-size:11.5px;">未到期</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 6.2 ReminderList & DueReminders -->
+      <article id="comp-reminder-list" class="comp-card" data-search="ReminderList DueReminders RemindersPage src/components/reminder-list.tsx src/app/(app)/reminders/page.tsx 该联系了 逾期">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;ReminderList /&gt; &amp; &lt;DueReminders /&gt;</span>
+            <span class="comp-file">src/components/reminder-list.tsx（宿主：/ · /people · /reminders）</span>
+          </div>
+          <span class="badge-server">Server Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>双行混合流：</strong><code>item.kind === "tier"</code> 渲染固定周期失联行（玫瑰色「逾期 X 天」胶囊）；<code>item.kind === "follow_up"</code> 渲染到期回访行（琥珀色「回访」标签 + 完成/跳过动作）。<code>DueReminders</code> 截取前 5 条并附 <code>/reminders</code> 跳转头。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>DueReminders 包装 + 双类型列表项</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;section&gt; (DueReminders)</span><span class="dom-cls">space-y-2</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;h2&gt;</span> <span class="dom-note">“该联系了” + <code>&lt;a href="/reminders"&gt;</code>“查看全部 →”</span></div>
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;ul&gt; (ReminderList)</span><span class="dom-cls">divide-y rounded-xl border bg-card</span></div>
+                  <div class="dom-children">
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? item.kind === "tier"（熟人周期逾期）</div>
+                      <div class="dom-note"><code>&lt;li&gt;&lt;a href="/people/{id}"&gt;</code>：姓名 + <code>TierBadge</code> + 基准日期/阈值说明 + 玫瑰色 <code>逾期 {n} 天</code></div>
+                    </div>
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? item.kind === "follow_up"（新朋友阶梯回访）</div>
+                      <div class="dom-note"><code>&lt;li&gt;</code>：左 <code>&lt;a&gt;</code>（姓名 + <code>TierBadge</code> + “回访”徽章 + 建议语）；右（琥珀色逾期徽章 + 完成/跳过双 <code>&lt;form&gt;</code>）</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>DueReminders 混合提醒面板</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div class="tc-between">
+                <span class="tc-sm" style="font-weight:600;">该联系了</span>
+                <span class="tc-sm" style="font-weight:600;">查看全部 →</span>
+              </div>
+              <ul class="tc-list">
+                <li class="tc-between-start">
+                  <div>
+                    <div class="tc-row">
+                      <span class="tc-sm" style="font-weight:500;">老李</span>
+                      <span class="tc-tier tier-best">Best Bros</span>
+                    </div>
+                    <div class="tc-xs tc-muted" style="margin-top:2px;">上次联系 2026-09-10（2 个月前） · 阈值 30 天</div>
+                  </div>
+                  <span style="background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:999px; padding:1px 8px; font-size:11.5px; font-weight:500;">逾期 36 天</span>
+                </li>
+                <li class="tc-between-start">
+                  <div>
+                    <div class="tc-row">
+                      <span class="tc-sm" style="font-weight:500;">小王</span>
+                      <span class="tc-tier tier-friends">Friends</span>
+                      <span style="background:#fffbeb; color:#92400e; border:1px solid #fde68a; border-radius:999px; padding:1px 7px; font-size:11px;">回访</span>
+                    </div>
+                    <div class="tc-xs" style="margin-top:2px;">顺手把场馆预约小程序转给他。</div>
+                    <div class="tc-xs tc-muted">第 3 天 · 2026-11-15</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+                    <span style="background:#fffbeb; color:#92400e; border:1px solid #fde68a; border-radius:999px; padding:1px 8px; font-size:11.5px;">该回访了</span>
+                    <div class="tc-row tc-xs tc-muted"><span>完成</span><span>跳过</span></div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 7. 关系网与地理地图 ==================== -->
+    <section id="sec-maps" class="group-section">
+      <div class="group-header">
+        <h2>7. 可视化关系网与地理地图（Network &amp; Geo Maps）</h2>
+        <span>基于 D3 同步力导向与离线中国省级 GeoJSON 的双视图 SVG 画布（<code>/map</code> 与 <code>/map?view=geo</code>）</span>
+      </div>
+
+      <!-- 7.1 NetworkMap -->
+      <article id="comp-network-map" class="comp-card" data-search="NetworkMap MapPage src/components/map/network-map.tsx src/app/(app)/map/page.tsx 关系网 力导向 SVG">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;NetworkMap /&gt;</span>
+            <span class="comp-file">src/components/map/network-map.tsx（宿主：/map 默认视图）</span>
+          </div>
+          <span class="badge-client">Client Component (D3 Force SVG)</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>图形语义：</strong>中心深色圆点代表「我」，4 道同心虚线环作尺度装饰，辐射灰线连接每个人，<strong>深灰虚线边表示两人同属一个圈子</strong>（非认识关系）；选中特定圈子筛选时出现 <a class="ref-pill" href="#comp-share-panel">分享这个圈子</a> 按钮。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>筛选栏 + 图例 + SVG 力导向图 + 浮层槽</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">relative</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;（筛选条）</span><span class="dom-cls">mb-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto]</span></div>
+                  <div class="dom-note"><code>FilterCombobox("全部圈子")</code> + <code>FilterCombobox("全部所在地")</code> + <code>?circle</code> <code>ShareButton</code> + <code>?hasFilter</code> “清除筛选”</div>
+                </div>
+                <div class="dom-box"><span class="dom-tag">&lt;div&gt;（5 色图例条）</span> <span class="dom-note">遍历 5 个 <code>Tier</code> 圆点色块与英文名</span></div>
+                <div class="dom-box is-svg">
+                  <div class="dom-line"><span class="dom-tag">&lt;svg viewBox="-300 -220 600 440" role="img" aria-label="人脉关系网"&gt;</span></div>
+                  <div class="dom-children">
+                    <div class="dom-box is-svg"><span class="dom-tag">&lt;g&gt;</span>
+                      <div class="dom-note">① 4 个同心虚线 <code>&lt;circle strokeDasharray="3 3"&gt;</code><br/>② 辐射线 <code>&lt;line x1=0 y1=0&gt;</code> + 原点 <code>&lt;circle r=8 fill="#0f172a"&gt;</code><br/>③ 同圈子连线 <code>&lt;line strokeDasharray="3 2"&gt;</code><br/>④ 人物节点 <code>&lt;g data-network-node role="button"&gt;</code>（18px 透明热区圆 + 关系色实心圆 + 白描边 <code>&lt;text&gt;</code> 姓名）</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dom-cond">
+                  <div class="dom-cond-title">? selected 存在 → &lt;div class="contents"&gt;&lt;PersonPopover /&gt;&lt;/div&gt;</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/map 头部切换 + NetworkMap SVG 画布</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div class="tc-between">
+                <div>
+                  <div style="font-size:16px; font-weight:600;">地图</div>
+                  <div class="tc-xs tc-muted">同一圈子的人用虚线相连。</div>
+                </div>
+                <div class="tc-seg"><span class="active">关系网</span><span>地理</span></div>
+              </div>
+              <div class="tc-grid-2">
+                <input class="tc-input" value="球友" readonly aria-label="圈子筛选" />
+                <input class="tc-input" placeholder="全部所在地（输入搜索）" readonly />
+              </div>
+              <div class="tc-row tc-2xs tc-muted">
+                <span><i style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#e11d48;"></i> Best Bros</span>
+                <span><i style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#ea580c;"></i> Close friends</span>
+                <span><i style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#d97706;"></i> Friends</span>
+                <span><i style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#0284c7;"></i> Interacted</span>
+              </div>
+              <svg viewBox="-220 -130 440 260" style="width:100%; height:auto; border:1px solid #f1f5f9; border-radius:10px; background:#fcfdff;">
+                <circle r="32" fill="none" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="3 3" />
+                <circle r="68" fill="none" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="3 3" />
+                <circle r="106" fill="none" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="3 3" />
+                <line x1="0" y1="0" x2="-78" y2="-44" stroke="#e2e8f0" stroke-width="1" />
+                <line x1="0" y1="0" x2="-30" y2="-82" stroke="#e2e8f0" stroke-width="1" />
+                <line x1="0" y1="0" x2="86" y2="34" stroke="#e2e8f0" stroke-width="1" />
+                <line x1="-78" y1="-44" x2="-30" y2="-82" stroke="#64748b" stroke-width="0.8" stroke-dasharray="3 2" />
+                <circle r="7" fill="#0f172a" stroke="#fff" stroke-width="2" />
+                <g transform="translate(-78,-44)">
+                  <circle r="5.5" fill="#d97706" stroke="#fff" stroke-width="2" />
+                  <text y="-10" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">小王</text>
+                </g>
+                <g transform="translate(-30,-82)">
+                  <circle r="5.5" fill="#e11d48" stroke="#fff" stroke-width="2" />
+                  <text y="-10" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">老李</text>
+                </g>
+                <g transform="translate(86,34)">
+                  <circle r="5.5" fill="#ea580c" stroke="#fff" stroke-width="2" />
+                  <text y="-10" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">林律师</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 7.2 GeoMap & ClusterPanel & GeoSection -->
+      <article id="comp-geo-map" class="comp-card" data-search="GeoMap ClusterPanel GeoSection src/components/map/geo-map.tsx 地理地图 城市气泡 未定位">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;GeoMap /&gt; · &lt;ClusterPanel /&gt; · 未定位列表</span>
+            <span class="comp-file">src/components/map/geo-map.tsx · src/app/(app)/map/page.tsx</span>
+          </div>
+          <span class="badge-client">Client Component (Mercator + D3 Zoom)</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>结构亮点：</strong>内置 34 省级离线边界与碰撞推开算法（重叠城市气泡自动分离并画红色牵引线 <code>tie-line</code>）；点气泡弹出城市人员列表 <code>ClusterPanel</code>，再点人名无缝切换为 <code>PersonPopover</code>；画布下方紧跟服务端渲染的「未定位」修复引导列表。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>SVG 缩放底图 + 城市抽屉 + 未定位区块</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (GeoSection)</span><span class="dom-cls">space-y-6</span></div>
+              <div class="dom-children">
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt; (GeoMap)</span><span class="dom-cls">relative</span></div>
+                  <div class="dom-children">
+                    <div class="dom-note">顶部条：<code>FilterCombobox("全部关系")</code> + <code>FilterCombobox("全部标签")</code> + 人数/城市统计 + “复位”按钮</div>
+                    <div class="dom-box is-svg">
+                      <div class="dom-line"><span class="dom-tag">&lt;svg viewBox="0 0 900 640" class="bg-[#eef4fb] touch-none"&gt;</span></div>
+                      <div class="dom-note"><code>&lt;g transform={zoom}&gt;</code>：34 条省级 <code>&lt;path&gt;</code> + 防重叠红色牵引线 <code>&lt;line&gt;</code> + 城市气泡 <code>&lt;g data-geo-bubble&gt;</code>（人数圆 + 城市名）</div>
+                    </div>
+                    <div class="dom-cond">
+                      <div class="dom-cond-title">? open &amp;&amp; !selectedPerson → &lt;ClusterPanel /&gt;</div>
+                      <div class="dom-note">手机 <code>fixed bottom-[3.5rem] rounded-t-2xl</code> / 桌面 <code>md:absolute md:top-3 md:right-3 md:w-80</code>：城市人数头 + 人员 <code>&lt;ul&gt;</code></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dom-box is-semantic">
+                  <div class="dom-line"><span class="dom-tag">&lt;section&gt;（未定位修复区）</span><span class="dom-cls">space-y-2</span></div>
+                  <div class="dom-note"><code>&lt;h2&gt;</code>“未定位 {n} 人” + <code>&lt;ul&gt;</code>（姓名 + <code>TierBadge</code> + 原始所在地 + <code>&lt;a href="/people/{id}?edit=geo"&gt;</code>“去修复 →”）</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>地理气泡底图 + ClusterPanel 浮层 + 未定位行</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-between tc-xs tc-muted">
+                <span>12 人 · 4 个城市</span>
+                <span class="tc-btn tc-btn-ghost tc-btn-xs">复位</span>
+              </div>
+              <div style="position:relative; border-radius:10px; overflow:hidden; background:#eef4fb; height:190px; border:1px solid #dbeafe;">
+                <svg viewBox="0 0 420 190" style="width:100%; height:100%;">
+                  <path d="M55,35 L150,22 L245,30 L310,58 L295,132 L225,165 L135,152 L68,110 Z" fill="#ffffff" stroke="#94a3b8" stroke-width="1" />
+                  <g transform="translate(232,144)">
+                    <circle r="15" fill="#0f172a" fill-opacity="0.9" stroke="#fff" stroke-width="2" />
+                    <text text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#fff" font-weight="700">5</text>
+                    <text y="25" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">深圳</text>
+                  </g>
+                  <g transform="translate(262,102)">
+                    <circle r="12" fill="#e11d48" fill-opacity="0.85" stroke="#fff" stroke-width="2" />
+                    <text text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#fff" font-weight="700">3</text>
+                    <text y="22" text-anchor="middle" font-size="10" fill="#0f172a" font-weight="600">杭州</text>
+                  </g>
+                </svg>
+                <div style="position:absolute; top:8px; right:8px; width:185px; background:#fff; border:1px solid var(--tc-border); border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.08); font-size:12px;">
+                  <div class="tc-between" style="padding:7px 10px; border-bottom:1px solid var(--tc-border);">
+                    <b>深圳 <span class="tc-muted" style="font-weight:400;">5 人</span></b>
+                    <span class="tc-xs tc-muted">关闭</span>
+                  </div>
+                  <div style="padding:7px 10px;" class="tc-between">
+                    <span><b>林律师</b></span><span class="tc-xs tc-muted">详情</span>
+                  </div>
+                  <div style="padding:7px 10px; border-top:1px solid #f4f4f5;" class="tc-between">
+                    <span><b>小王</b></span><span class="tc-xs tc-muted">详情</span>
+                  </div>
+                </div>
+              </div>
+              <div class="tc-stack-1">
+                <div class="tc-xs" style="font-weight:600;">未定位 <span class="tc-muted" style="font-weight:400;">1 人</span></div>
+                <ul class="tc-list">
+                  <li class="tc-between">
+                    <div class="tc-row">
+                      <span class="tc-sm" style="font-weight:500;">阿杰</span>
+                      <span class="tc-tier tier-interacted">Interacted contacts</span>
+                      <span class="tc-xs tc-muted">所在地：大湾区</span>
+                    </div>
+                    <span class="tc-xs">去修复 →</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 7.3 PersonPopover -->
+      <article id="comp-person-popover" class="comp-card" data-search="PersonPopover src/components/map/person-popover.tsx 地图浮层 底部卡片">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PersonPopover /&gt;</span>
+            <span class="comp-file">src/components/map/person-popover.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>响应式定位：</strong>手机端为贴在底栏上方的圆角抽屉（<code>fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] rounded-t-2xl</code>），桌面端为地图画布右上角浮动面板（<code>md:absolute md:top-3 md:right-3 md:w-80</code>）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>速览头 + 标签 + 紧凑追加框</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">fixed inset-x-0 bottom-[...] rounded-t-2xl bg-card p-4 shadow-lg md:absolute md:w-80</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;div&gt;</span> <span class="dom-note">姓名链接 + <code>TierBadge</code> + 城市/圈子/最近联系 + 右上角关闭 <code>✕</code></span></div>
+                <div class="dom-box"><span class="dom-tag">&lt;p&gt; &amp; &lt;div&gt;</span> <span class="dom-note">客观摘要 + <code>TagChip</code> 组</span></div>
+                <div class="dom-box">
+                  <div class="dom-line"><span class="dom-tag">&lt;div&gt;</span><span class="dom-cls">mt-3 space-y-2 border-t pt-3</span></div>
+                  <div class="dom-children">
+                    <a class="dom-slot" href="#comp-append-input">↳ &lt;AppendInput compact /&gt;</a>
+                    <div class="dom-box is-interactive"><span class="dom-tag">&lt;a data-slot="button" href="/people/{id}"&gt;</span> <span class="dom-note">“查看详情”全宽描边按钮</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>地图点击弹出卡片</span></div>
+            <div class="tc-canvas" style="background:#eef2f6;">
+              <div class="tc-card" style="max-width:300px; margin:0 auto; box-shadow:0 6px 16px rgba(0,0,0,0.08);">
+                <div class="tc-between-start">
+                  <div>
+                    <div class="tc-row">
+                      <b style="font-size:15px;">小王</b>
+                      <span class="tc-tier tier-friends">Friends</span>
+                    </div>
+                    <div class="tc-xs tc-muted">深圳 · 圈子 · 球友 · 最近联系 3 天前</div>
+                  </div>
+                  <span class="tc-btn tc-btn-ghost tc-btn-icon-sm">✕</span>
+                </div>
+                <p class="tc-sm" style="margin:8px 0;">羽毛球教练，在深圳南山带成人班。</p>
+                <div class="tc-row"><span class="tc-chip chip-skill">羽毛球</span></div>
+                <div class="tc-stack-2" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--tc-border);">
+                  <div style="display:flex; gap:6px;">
+                    <input class="tc-input" placeholder="追加一句关于 小王 的事…" readonly />
+                    <span class="tc-btn tc-btn-icon">↑</span>
+                  </div>
+                  <span class="tc-btn tc-btn-outline tc-btn-sm" style="width:100%;">查看详情</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 8. 人脉快照分享流 ==================== -->
+    <section id="sec-sharing" class="group-section">
+      <div class="group-header">
+        <h2>8. 人脉快照分享流（Sharing &amp; Public Snapshot）</h2>
+        <span>只读静态快照机制：精细勾选公开字段、站内投递或带口令/次数限制的短链分享</span>
+      </div>
+
+      <!-- 8.1 ShareButton / Modal -->
+      <article id="comp-share-panel" class="comp-card" data-search="ShareButton share-panel src/components/share-panel.tsx 分享快照 口令 链接">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;ShareButton /&gt;（含分享配置模态框）</span>
+            <span class="comp-file">src/components/share-panel.tsx</span>
+          </div>
+          <span class="badge-client">Client Component (Modal Dialog)</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>挂载点：</strong>人物详情页右上角（<code>kind="person"</code>）、标签管理页圈子行 &amp; 关系网筛选栏（<code>kind="circle"</code>）。</span>
+          <span><strong>安全防呆：</strong>联系方式默认全部不勾选；勾选「印象（需确认）」时强制弹出二次确认提醒对方将看到私人原文；生成的公开链接仅在创建成功态显示一次。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>触发按钮 + role="dialog" 遮罩层</span></div>
+            <div class="dom-box is-interactive">
+              <div class="dom-line"><span class="dom-tag">&lt;Button variant="outline" size="sm"&gt;</span> <span class="dom-note">{label}（“分享” / “分享这个圈子”）</span></div>
+            </div>
+            <div class="dom-cond">
+              <div class="dom-cond-title">? open === true → 全屏半透明遮罩 + 对话框</div>
+              <div class="dom-box is-interactive">
+                <div class="dom-line"><span class="dom-tag">&lt;div role="dialog" aria-modal="true"&gt;</span><span class="dom-cls">rounded-t-2xl bg-background p-4 shadow-xl md:max-w-lg md:rounded-xl</span></div>
+                <div class="dom-children">
+                  <div class="dom-box"><span class="dom-tag">&lt;div&gt;</span> <span class="dom-note"><code>&lt;h2 id="share-title"&gt;</code>“分享「{title}」” + 快照不可变说明 + “关闭”按钮</span></div>
+                  <div class="dom-cond">
+                    <div class="dom-cond-title">? !created（配置态）</div>
+                    <div class="dom-box is-form">
+                      <span class="dom-tag">&lt;fieldset&gt;</span> <span class="dom-note"><code>&lt;legend&gt;</code>“对方能看到” + 性别 / 所在地 / 标签下拉(全部|只能力|不分享) / 认识方式 / 认识日期 / 显示我是谁 / 摘要 / 印象(需确认) / 关系远近 / 时间线 / 各联系方式独立复选框</span>
+                    </div>
+                    <div class="dom-box is-form">
+                      <span class="dom-tag">投递与链接区</span> <span class="dom-note">站内收件人 <code>&lt;textarea&gt;</code> + 附言 <code>&lt;Input&gt;</code> + “同时生成链接”复选框（勾选后展开 <code>grid-cols-3</code>：有效期 1/7/30天 · 最多打开 · 口令）+ “发送”按钮</span>
+                    </div>
+                  </div>
+                  <div class="dom-cond">
+                    <div class="dom-cond-title">? created 存在（完成态）</div>
+                    <div class="dom-note">“已发送给 N 人” + 只读一次性链接 <code>&lt;Input readOnly /&gt;</code> + “完成”按钮</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>分享配置对话框展开态</span></div>
+            <div class="tc-canvas" style="background:#52525b; padding:14px;">
+              <div class="tc-card tc-stack-3" style="max-width:400px; margin:0 auto;">
+                <div class="tc-between-start">
+                  <div>
+                    <div style="font-size:15px; font-weight:600;">分享「林律师」</div>
+                    <div class="tc-xs tc-muted">发出去的是当时的快照，之后你改了原记录，对方不会跟着变。</div>
+                  </div>
+                  <span class="tc-xs tc-muted">关闭</span>
+                </div>
+                <div class="tc-stack-1 tc-xs">
+                  <div class="tc-muted">对方能看到</div>
+                  <div class="tc-grid-2">
+                    <label><input type="checkbox" checked disabled /> 性别</label>
+                    <label><input type="checkbox" checked disabled /> 所在地</label>
+                    <label><input type="checkbox" checked disabled /> 显示我是谁</label>
+                    <label><input type="checkbox" disabled /> 印象（需确认）</label>
+                    <label><input type="checkbox" checked disabled /> 微信</label>
+                    <label><input type="checkbox" disabled /> 电话</label>
+                  </div>
+                </div>
+                <label class="tc-field">
+                  <span>发给站内用户，一行一个 @用户名 或邮箱</span>
+                  <input class="tc-input" value="@beibei" readonly />
+                </label>
+                <label class="tc-xs"><input type="checkbox" checked disabled /> 同时生成链接</label>
+                <div class="tc-grid-3">
+                  <label class="tc-field"><span>有效期</span><select class="tc-select" style="height:30px;"><option>7 天</option></select></label>
+                  <label class="tc-field"><span>最多打开</span><input class="tc-input" style="height:30px;" placeholder="不限" readonly /></label>
+                  <label class="tc-field"><span>口令</span><input class="tc-input" style="height:30px;" value="2026" readonly /></label>
+                </div>
+                <span class="tc-btn">发送</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8.2 ReceivedShares & SentShares -->
+      <article id="comp-shares-lists" class="comp-card" data-search="ReceivedShares SentShares SharedPage SharesPage src/components/received-shares.tsx sent-shares.tsx 收到的分享 我发出的分享">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;ReceivedShares /&gt; &amp; &lt;SentShares /&gt;</span>
+            <span class="comp-file">src/components/received-shares.tsx · sent-shares.tsx（宿主：/shared · /shares）</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>双向闭环：</strong><code>/shared</code> 与 <code>/shares</code> 页面头部互链切换。收到的圈子分享若含多条待处理记录，提供一键「全部收录」按钮并跳转收件箱细看；发出的分享支持「撤销」与「刷新快照」。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>收发两套 &lt;article&gt; 列表</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;article&gt; (ReceivedShares 单项)</span><span class="dom-cls">rounded-xl border bg-card p-3</span></div>
+              <div class="dom-note"><code>@{from_username} 分享了一个圈子/人</code> + 状态（待收录/已收录/已忽略/分享已撤销）+ <code>?pending.length &gt; 1</code> “全部收录”按钮 + <code>&lt;a href="/inbox"&gt;</code>“{n} 条在收件箱里待处理”</div>
+            </div>
+            <div class="dom-box is-semantic" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;article&gt; (SentShares 单项)</span><span class="dom-cls">rounded-xl border bg-card p-3</span></div>
+              <div class="dom-note">左：<code>圈子/一个人 · N 张快照</code> + 站内收件人状态 <code>&lt;ul&gt;</code> + 链接打开次数 <code>view_count / max_views</code>；右：<code>?active</code> <code>撤销</code> + <code>刷新快照</code></div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>收到的分享 vs 我发出的分享</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div class="tc-card" style="padding:11px 12px;">
+                <div class="tc-between-start">
+                  <div>
+                    <div class="tc-sm" style="font-weight:500;">@beibei 分享了一个圈子</div>
+                    <div class="tc-xs tc-muted">待收录 · 3 小时前 · 推荐几位靠谱设计师</div>
+                  </div>
+                  <span class="tc-btn tc-btn-sm">全部收录</span>
+                </div>
+                <div class="tc-xs" style="margin-top:6px; text-decoration:underline;">3 条在收件箱里待处理</div>
+              </div>
+
+              <div class="tc-card" style="padding:11px 12px;">
+                <div class="tc-between-start">
+                  <div>
+                    <div class="tc-sm" style="font-weight:500;">一个人 · 1 张快照</div>
+                    <div class="tc-xs tc-muted">昨天 · 林律师联系方式</div>
+                    <div class="tc-xs tc-muted" style="margin-top:4px;">@aming · 已收录 ｜ 链接 · 已打开 2 / 5 次</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px;">
+                    <span class="tc-btn tc-btn-outline tc-btn-sm">撤销</span>
+                    <span class="tc-btn tc-btn-ghost tc-btn-sm">刷新快照</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8.3 PublicShareCard -->
+      <article id="comp-public-share" class="comp-card" data-search="PublicShareCard PublicSharePage src/components/public-share-card.tsx src/app/s/[token]/page.tsx 公开分享页 口令解锁">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PublicShareCard /&gt; &amp; &lt;PublicSharePage /&gt;</span>
+            <span class="comp-file">src/components/public-share-card.tsx · src/app/s/[token]/page.tsx</span>
+          </div>
+          <span class="badge-client">脱离 AppNav 的独立公开页</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>三种页面形态：</strong>① <code>status === "gone"</code> 失效提示页；② <code>needsPasscode</code> 口令验证解锁表单；③ 快照卡片浏览页（已登录显示「收录到我的人脉」，未登录显示「登录后收录」跳转 <code>/login?next=...</code>）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>口令态 vs 快照详情态</span></div>
+            <div class="dom-cond">
+              <div class="dom-cond-title">? needsPasscode === true</div>
+              <div class="dom-box is-semantic">
+                <div class="dom-line"><span class="dom-tag">&lt;main class="mx-auto max-w-md px-4 py-16"&gt;</span></div>
+                <div class="dom-note"><code>&lt;h1&gt;</code>“这张卡片有口令” + <code>&lt;form&gt;</code>（<code>&lt;Input placeholder="口令" /&gt;</code> + <code>&lt;Button&gt;</code>“打开”）</div>
+              </div>
+            </div>
+            <div class="dom-box is-semantic" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;main class="mx-auto max-w-lg space-y-4 px-4 py-8"&gt;</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;header&gt;</span> <span class="dom-note">“@{owner} 分享” + 附言</span></div>
+                <div class="dom-box is-semantic"><span class="dom-tag">&lt;article&gt; × N</span> <span class="dom-note"><code>&lt;h2&gt;</code>姓名 + 城市·认识方式·标签串 + 摘要 + 联系方式 <code>&lt;dl&gt;</code></span></div>
+                <div class="dom-box is-interactive"><span class="dom-tag">底部收录动作</span> <span class="dom-note"><code>?signedIn</code> <code>&lt;Button&gt;</code>“收录到我的人脉” : <code>&lt;a&gt;</code>“登录后收录”</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/s/[token] 访客快照视图</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div>
+                <div class="tc-xs tc-muted">@chenmo 分享</div>
+                <div class="tc-sm">这位是深圳很靠谱的商事律师。</div>
+              </div>
+              <div class="tc-card tc-stack-2">
+                <div style="font-size:17px; font-weight:600;">林律师</div>
+                <div class="tc-xs tc-muted">深圳 · 创业沙龙 · 合同审查</div>
+                <div class="tc-sm">商事诉讼与股权架构律师，认识六年。</div>
+                <div style="display:flex; gap:10px; font-size:13px;">
+                  <span class="tc-muted" style="width:44px;">微信</span><span class="tc-mono">lin_legal_sz</span>
+                </div>
+              </div>
+              <span class="tc-btn">收录到我的人脉</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== 9. 认证、安全与管理后台 ==================== -->
+    <section id="sec-auth-admin" class="group-section">
+      <div class="group-header">
+        <h2>9. 认证、安全、设置与管理后台（Auth, Settings &amp; Admin）</h2>
+        <span>多用户自托管体系：React 19 <code>useActionState</code> 通用表单、WebAuthn Passkey、TOTP、数据导出与零隐私泄露审计</span>
+      </div>
+
+      <!-- 9.1 AuthForm & ResetPasswordForm -->
+      <article id="comp-auth-forms" class="comp-card" data-search="AuthForm ResetPasswordForm src/components/auth-form.tsx reset-form.tsx 登录 注册 初始化">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;AuthForm /&gt; &amp; &lt;ResetPasswordForm /&gt;</span>
+            <span class="comp-file">src/components/auth-form.tsx · src/app/(auth)/reset-password/reset-form.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>7 处复用 <code>AuthForm</code>：</strong><code>/setup</code>（创建首个管理员）、<code>/login</code>、<code>/register</code>、<code>/settings/account</code>（改资料）、<code>/settings/security</code>（改密码）、<code>/settings/tokens</code>（建 PAT 令牌，回显一次性明文 <code>state.token</code>）、<code>/admin/invites</code> &amp; <code>/admin/users</code>（回显一次性邀请或重置链接 <code>state.url</code>）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>声明式字段数组 + 令牌/URL 单次回显</span></div>
+            <div class="dom-box is-form">
+              <div class="dom-line"><span class="dom-tag">&lt;form action={formAction}&gt; (AuthForm)</span><span class="dom-cls">space-y-3</span></div>
+              <div class="dom-children">
+                <div class="dom-cond"><div class="dom-cond-title">? hidden 键值 → &lt;input type="hidden" /&gt;</div></div>
+                <div class="dom-cond"><div class="dom-cond-title">? state?.message → 红底错误提示框</div></div>
+                <div class="dom-cond"><div class="dom-cond-title">? state?.token | state?.url → 等宽灰底单次回显框 bg-muted font-mono</div></div>
+                <div class="dom-box"><span class="dom-tag">&lt;label&gt; × fields.length</span> <span class="dom-note"><code>&lt;span&gt;</code>{label} + <code>&lt;Input name type required /&gt;</code></span></div>
+                <div class="dom-box is-interactive"><span class="dom-tag">&lt;Button type="submit" class="w-full"&gt;</span> <span class="dom-note">{pending ? "请稍候…" : submitLabel}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/login 登录页组合预览</span></div>
+            <div class="tc-canvas">
+              <div style="max-width:320px; margin:0 auto;" class="tc-stack-3">
+                <div style="font-size:16px; font-weight:600;">登录</div>
+                <label class="tc-field"><span style="color:var(--tc-fg); font-size:13px;">邮箱或用户名</span><input class="tc-input" value="chenmo" readonly /></label>
+                <label class="tc-field"><span style="color:var(--tc-fg); font-size:13px;">密码</span><input class="tc-input" type="password" value="••••••••••••" readonly /></label>
+                <span class="tc-btn" style="width:100%;">登录</span>
+                <span class="tc-btn tc-btn-outline" style="width:100%;">使用 Passkey 登录</span>
+                <div class="tc-between tc-xs tc-muted">
+                  <span>忘记密码</span>
+                  <span>有邀请码？注册</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9.2 PasskeyLoginButton & PasskeyManager -->
+      <article id="comp-passkey" class="comp-card" data-search="PasskeyLoginButton PasskeyManager src/components/passkey-login.tsx passkey-manager.tsx">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;PasskeyLoginButton /&gt; &amp; &lt;PasskeyManager /&gt;</span>
+            <span class="comp-file">src/components/passkey-login.tsx · passkey-manager.tsx</span>
+          </div>
+          <span class="badge-client">Client Component (WebAuthn)</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>安全上下文检测：</strong>主动检测 <code>window.isSecureContext</code>，对局域网纯 HTTP 访问给出明确的 localhost / HTTPS 提示，避免浏览器静默失败。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>钥匙列表 + 命名添加栏</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (PasskeyManager)</span><span class="dom-cls">space-y-3 text-sm</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;p&gt;</span> <span class="dom-note">安全上下文说明文字</span></div>
+                <div class="dom-box"><span class="dom-tag">&lt;ul&gt;</span> <span class="dom-note"><code>&lt;li&gt;</code>：钥匙名称 + <code>&lt;Button variant="ghost"&gt;</code>“删除”</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;div class="flex gap-2"&gt;</span> <span class="dom-note"><code>&lt;Input placeholder="给这把钥匙起个名字" /&gt;</code> + <code>&lt;Button&gt;</code>“添加 Passkey”</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>Passkey 管理区块</span></div>
+            <div class="tc-canvas tc-stack-2">
+              <div class="tc-xs tc-muted">添加后可以用这把 Passkey 登录。局域网 IP 或纯 http 不是安全上下文，点添加时会被拒绝。</div>
+              <div class="tc-between tc-sm" style="padding:4px 0;">
+                <span>MacBook Touch ID</span>
+                <span class="tc-btn tc-btn-ghost tc-btn-sm">删除</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <input class="tc-input" placeholder="给这把钥匙起个名字" readonly />
+                <span class="tc-btn">添加 Passkey</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9.3 TotpSetup & TwoFactorForm -->
+      <article id="comp-two-factor" class="comp-card" data-search="TotpSetup TwoFactorForm src/components/totp-setup.tsx two-factor-form.tsx 两步验证 TOTP 恢复码">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;TotpSetup /&gt; &amp; &lt;TwoFactorForm /&gt;</span>
+            <span class="comp-file">src/components/totp-setup.tsx · two-factor-form.tsx</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong><code>TotpSetup</code> 位于「设置 › 安全」内负责验证密码、展示 TOTP 密钥与一次性恢复码、校验 6 位码开启或关闭；<code>TwoFactorForm</code> 位于登录流 <code>/two-factor</code>，含两个并列表单（6 位动态码 + 30 天免验复选框 / 一次性恢复码）。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>设置页开启流 &amp; 登录页双表单验证</span></div>
+            <div class="dom-box">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (TotpSetup)</span></div>
+              <div class="dom-note">密码输入框 + <code>?!enabled</code> “开启两步验证” → 展开 <code>totpURI</code>、<code>backupCodes</code> 与 6 位码确认框；<code>?enabled</code> “关闭两步验证”</div>
+            </div>
+            <div class="dom-box" style="margin-top:8px;">
+              <div class="dom-line"><span class="dom-tag">&lt;div&gt; (TwoFactorForm)</span><span class="dom-cls">space-y-4</span></div>
+              <div class="dom-children">
+                <div class="dom-box is-form"><span class="dom-tag">&lt;form #1&gt;</span> <span class="dom-note">6 位码输入 + <code>&lt;input type="checkbox"&gt;</code>“30 天内这台设备不用再输入验证码” + “确认”按钮</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;form #2&gt;</span> <span class="dom-note">一次性恢复码输入 + <code>&lt;Button variant="outline"&gt;</code>“用恢复码登录”</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/two-factor 二次验证卡片</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <label class="tc-field"><span style="color:var(--tc-fg); font-size:13px;">验证器里的 6 位码</span><input class="tc-input" value="482910" readonly /></label>
+              <label class="tc-xs"><input type="checkbox" checked disabled /> 30 天内这台设备不用再输入验证码</label>
+              <span class="tc-btn" style="width:100%;">确认</span>
+              <label class="tc-field" style="padding-top:6px; border-top:1px solid #f4f4f5;">
+                <span style="color:var(--tc-fg); font-size:13px;">或使用一次性恢复码</span>
+                <input class="tc-input" placeholder="" readonly />
+              </label>
+              <span class="tc-btn tc-btn-outline" style="width:100%;">用恢复码登录</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9.4 AccountDanger -->
+      <article id="comp-account-danger" class="comp-card" data-search="AccountDanger src/components/account-danger.tsx 导出与注销 zip 删除我的账号">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">&lt;AccountDanger /&gt;</span>
+            <span class="comp-file">src/components/account-danger.tsx（宿主：/settings/account）</span>
+          </div>
+          <span class="badge-client">Client Component</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>职责：</strong>一键导出当前账号全量 JSON 压缩包（<code>tokenconnection-export.zip</code>）；校验当前密码与精确确认短语「删除我的账号」后彻底销毁个人库、会话与令牌。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>导出按钮 + 双输入注销防误触</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">&lt;section&gt;</span><span class="dom-cls">space-y-3 rounded-xl border p-4</span></div>
+              <div class="dom-children">
+                <div class="dom-box"><span class="dom-tag">&lt;h2&gt;</span>“导出与注销” + 说明段落</div>
+                <div class="dom-box is-interactive"><span class="dom-tag">&lt;Button variant="outline"&gt;</span> <span class="dom-note">“下载导出”</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;Input type="password" placeholder="当前密码" /&gt;</span></div>
+                <div class="dom-box is-form"><span class="dom-tag">&lt;Input placeholder="输入：删除我的账号" /&gt;</span></div>
+                <div class="dom-box is-interactive"><span class="dom-tag">&lt;Button variant="destructive"&gt;</span> <span class="dom-note">“注销账号”</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>导出与注销面板</span></div>
+            <div class="tc-canvas">
+              <div class="tc-card tc-stack-2">
+                <div style="font-weight:600;">导出与注销</div>
+                <p class="tc-xs tc-muted" style="margin:0;">导出是一个 zip，里面是你的人脉、标签、时间线和收件箱 JSON。注销会删掉你的库、会话和令牌，别人已经收录的副本还在。</p>
+                <div><span class="tc-btn tc-btn-outline">下载导出</span></div>
+                <input class="tc-input" type="password" placeholder="当前密码" readonly />
+                <input class="tc-input" placeholder="输入：删除我的账号" readonly />
+                <div><span class="tc-btn tc-btn-destructive">注销账号</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9.5 设置中心与管理后台页面专属 HTML 结构 -->
+      <article id="comp-settings-admin" class="comp-card" data-search="SettingsPage TokensPage SessionsPage PrivacyPage AdminUsersPage InvitesPage AuditPage AdminSettingsPage 设置 管理后台 审计 令牌">
+        <div class="comp-head">
+          <div class="comp-title-row">
+            <span class="comp-name">设置中心与管理后台专属页面结构（8 页）</span>
+            <span class="comp-file">src/app/(app)/settings/** · src/app/(app)/admin/**</span>
+          </div>
+          <span class="badge-server">Server Components</span>
+        </div>
+        <div class="comp-meta">
+          <span><strong>设计共性：</strong>所有二级页顶部带 <code>‹ 我</code>（或 <code>‹ 用户</code>）返回链接，直接由 Server Component 拼装列表与原生 Server Action <code>&lt;form&gt;</code>，管理后台与审计日志严格隔离用户私密人脉正文。</span>
+        </div>
+        <div class="comp-grid">
+          <div class="dom-pane">
+            <div class="pane-label"><span>HTML DOM 盒模型结构</span><span>个人中心与管理子页结构清单</span></div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">/settings（「我」总入口）</span></div>
+              <div class="dom-note">圆形首字大头像 <code>size-12</code> + 姓名/@用户名·邮箱 + 「回访」复选框保存表单 + 「库 / 账号 / ?admin 管理」三组 <code>divide-y</code> 导航列表 + 底部红色“退出登录”</div>
+            </div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">/settings/tokens · /sessions · /privacy</span></div>
+              <div class="dom-note">• <strong>TokensPage：</strong>旧令牌过期横幅 + 令牌前缀/权限列表（含撤销表单）+ 新建令牌 <code>AuthForm</code><br/>• <strong>SessionsPage：</strong>设备 UA / IP 列表 + 单设备撤销 + “注销其它所有设备”表单<br/>• <strong>PrivacyPage：</strong>今日抽取/识图/向量配额统计 + 4 项复选开关表单</div>
+            </div>
+            <div class="dom-box is-semantic">
+              <div class="dom-line"><span class="dom-tag">/admin/users · /invites · /audit · /settings</span></div>
+              <div class="dom-note">• <strong>AdminUsersPage：</strong>用户角色状态列表 + 重置 2FA / 停用恢复表单 + 生成重置链接 <code>AuthForm</code><br/>• <strong>InvitesPage：</strong>创建邀请 <code>AuthForm</code> + 邀请码状态与撤销列表<br/>• <strong>AuditPage：</strong>动作过滤 GET 表单 + 最近 50 条动作类型只读列表<br/>• <strong>AdminSettingsPage：</strong>环境变量配额 <code>&lt;dl&gt;</code> 只读看板</div>
+            </div>
+          </div>
+          <div class="preview-pane">
+            <div class="pane-label"><span>1:1 静态 HTML 视觉绘制</span><span>/settings「我」页面结构还原</span></div>
+            <div class="tc-canvas tc-stack-3">
+              <div class="tc-row" style="gap:12px;">
+                <span style="width:44px; height:44px; border-radius:999px; background:var(--tc-primary); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:17px; font-weight:600;">陈</span>
+                <div>
+                  <div style="font-size:17px; font-weight:600;">陈默</div>
+                  <div class="tc-xs tc-muted">@chenmo · chenmo@example.com</div>
+                </div>
+              </div>
+              <div class="tc-card tc-stack-2" style="padding:11px 12px;">
+                <label class="tc-between-start tc-sm">
+                  <span>新加入的人做回访提醒<span class="tc-2xs tc-muted" style="display:block; margin-top:2px;">打开后，新加入的人会在第 2 天、3 天、1 周、1 个月提醒回访。</span></span>
+                  <input type="checkbox" checked disabled />
+                </label>
+                <div><span class="tc-btn tc-btn-sm">保存</span></div>
+              </div>
+              <div class="tc-stack-1">
+                <div class="tc-2xs tc-muted">库</div>
+                <ul class="tc-list tc-sm">
+                  <li class="tc-between"><span>收件箱</span><span class="tc-xs tc-muted">2 条待处理 ›</span></li>
+                  <li class="tc-between"><span>收到的分享</span><span class="tc-muted">›</span></li>
+                  <li class="tc-between"><span>圈子和标签</span><span class="tc-muted">›</span></li>
+                  <li class="tc-between"><span>该联系了</span><span class="tc-muted">›</span></li>
+                </ul>
+              </div>
+              <div class="tc-sm" style="color:var(--tc-destructive);">退出登录</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 渐进增强：侧边栏搜索框实时过滤组件卡片（禁用脚本时全部组件依然 100% 正常静态展示）
+  (function () {
+    var input = document.getElementById("comp-search");
+    if (!input) return;
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".comp-card"));
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase();
+      cards.forEach(function (card) {
+        var hay = ((card.getAttribute("data-search") || "") + " " + card.textContent).toLowerCase();
+        card.style.display = !q || hay.indexOf(q) !== -1 ? "" : "none";
+      });
+    });
+  })();
+</script>
+</body>
+</html>
