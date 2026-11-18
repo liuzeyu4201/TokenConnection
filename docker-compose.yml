@@ -6,7 +6,7 @@ services:
     # Host port defaults to 5433 because 5432 is often taken by another local Postgres.
     # Keep DATABASE_URL in .env in sync with POSTGRES_PORT.
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: tokenconnection
       POSTGRES_USER: postgres
